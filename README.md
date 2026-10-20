@@ -13,6 +13,19 @@ npm run dev
 
 Open the address reported by Vite in a WebGL-capable desktop browser. Click **Enter the Harbor** to capture the mouse. For integrated graphics or software rendering, add `?quality=low` to the address; this lowers resolution and disables shadows. Assets and fonts are bundled locally; no API keys, accounts, or backend services are needed.
 
+## Play through a hosted link
+
+The repository includes a GitHub Pages deployment workflow. The repository owner must first enable it on GitHub:
+
+1. Open this repository's **Settings → Pages**.
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+3. Open **Actions → Deploy game to GitHub Pages → Run workflow**, select `main`, and run it. If an earlier run failed before Pages was enabled, rerun it.
+4. Wait for the build and deployment to finish successfully. The deployment shows the live game address; **Settings → Pages** also provides a **Visit site** button.
+
+GitHub Pages availability for private repositories depends on the account's plan. Enabling a public game website does not require making the source repository public. If GitHub asks you to upgrade, another static host can be used instead.
+
+The expected address after a successful deployment is `https://evanickert.github.io/Lil-Jeff-Simulator/`. This is not a claim that the site has already been published. Later pushes to `main` automatically update the game. You do not need Node.js or Vite installed on your computer to play the hosted version.
+
 ## Controls
 
 | Input | Action |
