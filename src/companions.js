@@ -2,6 +2,29 @@ import * as THREE from 'three';
 import { WEAPONS, needsReload } from './combat.js';
 
 const angleDelta=(a,b)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
+// Route around solid corners instead of repeatedly walking into a barricade.
+function companionWaypoint(game,pos,goal) {
+  const obstacles=game.colliders.filter(box=>box.max.y>.6&&box.min.y<.6).map(box=>{
+    const expanded=box.clone();expanded.min.x-=.4;expanded.max.x+=.4;expanded.min.z-=.4;expanded.max.z+=.4;return expanded;
+  });
+  const blocked=(from,to)=>{
+    const origin=from.clone().setY(.6),direction=to.clone().setY(.6).sub(origin),distance=direction.length();
+    if(distance<.01)return null;
+    const ray=new THREE.Ray(origin,direction.normalize());
+    let first=null,nearest=distance;
+    for(const box of obstacles){const hit=ray.intersectBox(box,new THREE.Vector3());if(hit&&origin.distanceTo(hit)<nearest){nearest=origin.distanceTo(hit);first=box;}}
+    return first;
+  };
+  const obstacle=blocked(pos,goal);
+  if(!obstacle)return goal;
+  const corners=[];
+  for(const x of [obstacle.min.x-.25,obstacle.max.x+.25])for(const z of [obstacle.min.z-.25,obstacle.max.z+.25]){
+    const corner=new THREE.Vector3(x,0,z);
+    if(pos.distanceTo(corner)>.2&&safeFooting(game,corner)&&!blocked(pos,corner))corners.push(corner);
+  }
+  corners.sort((a,b)=>pos.distanceTo(a)+a.distanceTo(goal)-pos.distanceTo(b)-b.distanceTo(goal));
+  return corners[0]||goal;
+}
 export function safeFooting(game, point, radius=.4) {
   return Math.abs(point.x)<24.5 && point.z>-79 && point.z<20 && !game.colliders.some(box=>
     box.max.y>point.y+.05 && box.min.y<point.y+1.8 && point.x+radius>box.min.x && point.x-radius<box.max.x && point.z+radius>box.min.z && point.z-radius<box.max.z);
@@ -18,7 +41,10 @@ export function updateCompanions(game,dt) {
     if(p.health<65 && game.elapsed-p.lastHitAt>3) p.health=Math.min(65,p.health+dt*3);
     p.aiPlanCooldown-=dt;
     const leader=game.player.group.position;
-    if(p.aiPlanCooldown<=0 || !p.aiGoal || p.aiGoal.distanceTo(leader)>12) {
+    const holdCover=game.level===2&&p.coverAnchor&&leader.distanceTo(p.coverAnchor)<10&&enemies.some(e=>e.health>0);
+    if(holdCover){p.aiGoal=p.coverAnchor.clone();p.aiPlanCooldown=.8;}
+    else p.coverAnchor=null;
+    if(!holdCover&&(p.aiPlanCooldown<=0 || !p.aiGoal || p.aiGoal.distanceTo(leader)>12)) {
       const side=p.index%2 ? -1 : 1;
       const formation=new THREE.Vector3(side*2.3,0,3.5+(p.index===2?1:0)).applyAxisAngle(new THREE.Vector3(0,1,0),game.player.group.rotation.y).add(leader);
       formation.y=0;
@@ -41,9 +67,10 @@ export function updateCompanions(game,dt) {
       p.aiGoal=best || pos.clone();
       p.aiPlanCooldown=.8;
     }
-    const desired=p.aiGoal.clone().sub(pos).setY(0);
+    const waypoint=companionWaypoint(game,pos,p.aiGoal);
+    const desired=waypoint.clone().sub(pos).setY(0);
     let moving=false;
-    if(desired.length()>.65 && p.grounded) {
+    if(desired.length()>(waypoint===p.aiGoal ? .65 : .1) && p.grounded) {
       desired.normalize();
       for(const angle of [0,.65,-.65,1.2,-1.2]) {
         const step=desired.clone().applyAxisAngle(new THREE.Vector3(0,1,0),angle).multiplyScalar((hurt?3.4:2.8)*dt);
@@ -55,9 +82,14 @@ export function updateCompanions(game,dt) {
       }
     }
     p.aiState=hurt?'RETREATING':moving?'FOLLOWING':'IN COVER';
-    p.body.position.y=THREE.MathUtils.damp(p.body.position.y,0,12,dt);
+    const nearCover=game.colliders.some(box=>box.max.y>.8&&box.max.y<1.4&&box.distanceToPoint(pos)<2.5);
+    p.crouched=game.level===2&&!moving&&nearCover;
+    p.peek=Boolean(p.crouched&&nearest&&!hurt&&p.cooldown<=0&&p.draw<=0&&p.reloading<=0);
+    p.body.scale.y=THREE.MathUtils.damp(p.body.scale.y,p.crouched?.65:1,18,dt);
+    p.body.position.x=THREE.MathUtils.damp(p.body.position.x,0,18,dt);
+    p.body.position.y=THREE.MathUtils.damp(p.body.position.y,p.crouched?p.peek?.32:-.25:0,18,dt);
     p.body.rotation.x=THREE.MathUtils.damp(p.body.rotation.x,0,12,dt);
-    p.legs.forEach((leg,i)=>{leg.rotation.x=moving?Math.sin(game.elapsed*8+i*Math.PI)*.4:0;});
+    p.legs.forEach((leg,i)=>{leg.rotation.x=p.crouched?.45:moving?Math.sin(game.elapsed*8+i*Math.PI)*.4:0;});
     p.recoil=THREE.MathUtils.damp(p.recoil,0,7,dt);
     if(!nearest || hurt || pos.distanceTo(nearest.group.position)>19 || p.cooldown>0 || p.draw>0 || p.reloading>0)continue;
     const from=pos.clone().add(new THREE.Vector3(0,1.5,0));

@@ -88,7 +88,8 @@ export function buildCar(game, position = [4, 0, -38]) {
   box(2.2,.8,2.4,'#242735',0,1.57,.1);
   box(2.05,.6,.03,'#587782',0,1.64,-1.12);
   box(2.05,.6,.03,'#49636c',0,1.64,1.32);
-  for (const x of [-1.12,1.12]) box(.025,.55,1.9,'#4e626c',x,1.65,.05);
+  const windowMeshes=[];
+  for (const x of [-1.12,1.12]) windowMeshes.push(box(.025,.55,1.9,'#4e626c',x,1.65,.05));
   box(2.3,.1,.12,'#b2b6b3',0,.65,-2.4);
   for (const x of [-.85,.85]) {
     box(.5,.18,.07,'#ffe0ae',x,1,-2.43);
@@ -102,5 +103,5 @@ export function buildCar(game, position = [4, 0, -38]) {
     const hub = game.cylinder(.22,.24,'#8b8e92',x,.5,z,group);
     hub.rotation.z = Math.PI / 2;
   }
-  return { group, wheels, speed: 0, yaw: 0, gate: 0, integrity: 100, collisionCooldown: 0 };
+  return { group, wheels, windowMeshes, lockState:'locked', speed: 0, yaw: 0, gate: 0, integrity: 100, collisionCooldown: 0 };
 }

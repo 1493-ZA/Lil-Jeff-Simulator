@@ -7,6 +7,21 @@ async function enter(page) {
   await page.waitForFunction(() => window.__game.running);
 }
 
+async function board(page){
+  const state=await page.evaluate(()=>window.__game.car.lockState);
+  if(state==='locked'){
+    await page.keyboard.down('KeyE');
+    await page.waitForFunction(()=>window.__game.car.lockState==='opened');
+    await page.keyboard.up('KeyE');
+  }
+  if(await page.evaluate(()=>window.__game.car.lockState==='opened')){
+    await page.keyboard.down('KeyE');
+    await page.waitForFunction(()=>window.__game.driving);
+    await page.keyboard.up('KeyE');
+  }else if(!await page.evaluate(()=>window.__game.driving))await page.keyboard.press('KeyE');
+  await page.waitForFunction(()=>window.__game.driving);
+}
+
 test('renders Enter CHIRAQ and supports movement, airborne shooting, slide, switching, draw and reload', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -135,7 +150,7 @@ test('pause, resume, and return to main menu reset a run without reloading', asy
   expect(await page.evaluate(()=>window.__game.characters.map(p=>p.hair?.name || 'original hair'))).toEqual(['shoulder-length loose locs','original hair','tied crown locs with violet tips']);
 });
 
-test('personal story requires Draco takedowns, timed rap inputs and actual driving through every gate', async ({ page }) => {
+test('Mission 1 completes only on its last opp and automatically rewards and starts Mission 2', async ({ page }) => {
   await enter(page);
   await page.evaluate(()=>window.__game.enemies.forEach(e=>e.cooldown=Infinity));
   await page.keyboard.press('Digit2');
@@ -184,8 +199,9 @@ test('personal story requires Draco takedowns, timed rap inputs and actual drivi
   expect(await page.evaluate(()=>window.__game.driving)).toBe(false);
   await page.keyboard.press('Digit3');
   await page.evaluate(()=>window.__game.player.group.position.set(4,0,-34));
-  await page.keyboard.press('KeyE');
+  await board(page);
   await expect(page.locator('#drive-panel')).toBeVisible();
+  await page.evaluate(()=>{const g=window.__game,e=g.spawnEnemy(0,8);e.health=20;e.cooldown=Infinity;e.moveTimer=Infinity;e.moveGoal=e.group.position.clone();window.__lastStreetOpp=e;});
   const before=await page.evaluate(()=>window.__game.car.group.position.z);
   await page.keyboard.down('KeyW');
   await page.waitForFunction(z=>window.__game.car.group.position.z<z-2,before);
@@ -235,18 +251,27 @@ test('personal story requires Draco takedowns, timed rap inputs and actual drivi
   await page.waitForFunction(()=>window.__game.player.draw===0);
   await page.screenshot({path:'test-results/chiraq-back-seat.png'});
   await page.mouse.down();
-  await page.waitForFunction(()=>window.__game.driveByKills>=2,null,{timeout:20000});
+  await page.waitForFunction(()=>window.__game.enemies.filter(e=>e.driveBy).every(e=>e.health<=0),null,{timeout:20000});
   await page.mouse.up();
   await page.evaluate(()=>clearInterval(window.__gunnerAim));
-  await page.waitForFunction(()=>window.__game.finished,null,{timeout:25000});
-  await expect(page.locator('#result-title')).toHaveText('CREWEXTRACTED.');
-  expect(await page.evaluate(()=>window.__game.car.gate)).toBe(3);
-  expect(await page.evaluate(()=>window.__game.driveByKills)).toBeGreaterThanOrEqual(2);
-  expect(await page.evaluate(()=>window.__game.characters[0].xp)).toBe(100);
-  await page.locator('#result-menu').click();
+  expect(await page.evaluate(()=>window.__game.level)).toBe(1);
+  expect(await page.evaluate(()=>window.__game.finished)).toBe(false);
+  await expect(page.locator('#enemy-remaining')).toHaveText('OPPS LEFT 1');
+  await page.evaluate(()=>{
+    const g=window.__game;g.running=false;g.exitCar();g.active=0;
+    const p=g.player;p.group.position.set(-.4,0,14);p.group.rotation.set(0,0,0);p.body.position.set(0,0,0);p.body.rotation.set(0,0,0);p.body.scale.set(1,1,1);p.arms.rotation.set(-.04,0,0);p.guns[0].group.rotation.set(0,0,0);
+    g.shoot(p);g.running=true;
+  });
+  await page.waitForFunction(()=>window.__game.level===2);
+  await expect(page.locator('#level-title')).toHaveText('CLAIM THE BLOCK');
+  expect(await page.evaluate(()=>window.__game.characters.every(p=>p.health===125&&p.maxHealth===125&&p.crouched))).toBe(true);
+  expect(await page.evaluate(()=>window.__game.finished)).toBe(false);
+  expect(await page.evaluate(()=>window.__game.car.group.visible)).toBe(false);
+  await page.screenshot({path:'test-results/claim-the-block-start.png'});
+  await page.keyboard.press('Escape');await page.locator('#quit').click();
   await expect(page.locator('#menu')).toBeVisible();
-  expect(await page.evaluate(()=>({gate:__game.car.gate,driving:__game.driving,rap:__game.rap,score:__game.rapScore}))).toEqual({gate:0,driving:false,rap:null,score:0});
-  expect(await page.evaluate(()=>({gunner:__game.gunner,driveBy:__game.driveByKills,xp:__game.characters[0].xp}))).toEqual({gunner:false,driveBy:0,xp:100});
+  expect(await page.evaluate(()=>({level:__game.level,locked:__game.car.lockState,hp:__game.player.maxHealth}))).toEqual({level:1,locked:'locked',hp:100});
+
 });
 
 test('rap and driving can pause and quit; cars collide and all mission state resets', async ({ page }) => {
@@ -273,16 +298,14 @@ test('rap and driving can pause and quit; cars collide and all mission state res
     const g=window.__game; g.enemies.forEach(e=>e.cooldown=Infinity);
     g.stage=2; g.switchCharacter(2); g.player.group.position.set(4,0,-34);
   });
-  await page.keyboard.press('KeyE');
-  await page.waitForFunction(()=>window.__game.driving);
+  await board(page);
   await page.keyboard.down('KeyW');
   await page.waitForFunction(()=>window.__game.car.speed>2);
   await page.keyboard.up('KeyW');
   await page.keyboard.press('KeyE');
   expect(await page.evaluate(()=>window.__game.driving)).toBe(false);
   expect(await page.evaluate(()=>window.__game.characters.every(p=>p.group.visible))).toBe(true);
-  await page.keyboard.press('KeyE');
-  await page.waitForFunction(()=>window.__game.driving);
+  await board(page);
   await page.evaluate(()=>window.__game.car.group.position.set(7,0,-55));
   await page.keyboard.down('KeyW');
   await page.waitForFunction(()=>window.__game.car.integrity<100);
@@ -377,7 +400,7 @@ test('normal opps and the Special Opp patrol with moving legs and attached marke
     const g=window.__game;
     return [g.enemies[0],g.enemies.find(e=>e.special)].every((e,i)=>Math.hypot(e.group.position.x-points[i].x,e.group.position.z-points[i].z)>1);
   },before);
-  expect(await page.evaluate(()=>window.__game.enemies.some(e=>e.legs.some(l=>Math.abs(l.rotation.x)>.1)))).toBe(true);
+  await page.waitForFunction(()=>window.__game.enemies.some(e=>e.legs.some(l=>Math.abs(l.rotation.x)>.1)));
   expect(await page.evaluate(()=>{const e=window.__game.enemies.find(e=>e.special);return Math.abs(e.badge.position.x-e.group.position.x)+Math.abs(e.badge.position.z-e.group.position.z);})).toBeLessThan(.1);
 });
 
@@ -386,8 +409,7 @@ test('crew fires autonomously, driver shoots one-handed while steering, and AI d
   await page.evaluate(()=>{
     const g=window.__game;g.enemies.forEach(e=>e.health=0);g.stage=2;g.switchCharacter(2);g.player.group.position.set(4,0,-34);
   });
-  await page.keyboard.press('KeyE');
-  await page.waitForFunction(()=>window.__game.driving);
+  await board(page);
   await page.evaluate(()=>{
     const g=window.__game;
     for(const [x,z]of[[-4,-38],[7.5,-38]]){
@@ -463,4 +485,137 @@ test('subtitles are compact bottom text and original music has audible output, m
   await page.reload();await page.waitForFunction(()=>Boolean(window.__game));
   expect(await page.evaluate(()=>window.__game.music.volume)).toBe(.35);
   expect(errors).toEqual([]);
+});
+
+async function enterClaim(page){
+  await enter(page);
+  await page.evaluate(()=>{const g=window.__game;g.level=2;g.missionOneKills=g.characters.map(p=>p.kills);g.reset();g.enemies.forEach(e=>e.cooldown=Infinity);});
+  await page.waitForFunction(()=>window.__game.level===2&&window.__game.claim);
+}
+
+async function clearClaimWave(page){
+  await page.evaluate(()=>{
+    const g=window.__game;g.running=false;g.active=0;
+    const z=[-3,-24,-46,-69][g.claim.point],p=g.player;
+    p.group.position.set(-.4,0,z+4);p.group.rotation.set(0,0,0);p.body.position.set(0,0,0);p.body.rotation.set(0,0,0);p.body.scale.set(1,1,1);p.crouched=false;p.arms.rotation.set(-.04,0,0);p.guns[0].group.rotation.set(0,0,0);
+    const targets=g.enemies.filter(e=>e.claimWave===g.claim.point&&e.health>0);
+    for(const enemy of targets){
+      enemy.health=20;enemy.group.position.set(0,0,z-1);enemy.group.rotation.set(0,0,0);enemy.cooldown=Infinity;
+      for(let i=0;i<3&&enemy.health>0;i++){p.recoil=0;g.shoot(p);}
+      if(enemy.health>0)throw Error('Claim checkpoint muzzle hit failed');
+    }
+    g.running=true;
+  });
+}
+
+async function gatherCrew(page){
+  await page.evaluate(()=>{
+    const g=window.__game,z=[-3,-24,-46,-69][g.claim.point];
+    g.characters.forEach((p,i)=>{p.group.position.set((i-1)*3,0,z);p.coverAnchor=null;p.aiGoal=null;p.aiPlanCooldown=0;});
+  });
+}
+
+test('car entry requires Z78 to finish both break-in and hotwire; cancellation cannot bypass either',async({page})=>{
+  await enter(page);
+  await page.evaluate(()=>{const g=window.__game;g.stage=2;g.enemies.forEach(e=>e.health=0);g.player.group.position.set(4,0,-34);});
+  await page.keyboard.press('KeyE');
+  expect(await page.evaluate(()=>window.__game.carWork)).toBeNull();
+  await page.keyboard.press('Digit3');await page.evaluate(()=>window.__game.player.group.position.set(4,0,-34));
+  await page.keyboard.down('KeyE');await page.waitForFunction(()=>window.__game.carWork?.progress>.3);await page.keyboard.up('KeyE');
+  await page.waitForFunction(()=>window.__game.carWork===null);
+  expect(await page.evaluate(()=>({lock:__game.car.lockState,drive:__game.driving}))).toEqual({lock:'locked',drive:false});
+  await page.keyboard.down('KeyE');await page.waitForFunction(()=>window.__game.car.lockState==='opened');await page.keyboard.up('KeyE');
+  expect(await page.evaluate(()=>window.__game.driving)).toBe(false);
+  await page.keyboard.down('KeyE');await page.waitForFunction(()=>window.__game.carWork?.phase==='wire');
+  expect(await page.evaluate(()=>window.__game.driving)).toBe(false);
+  await page.waitForFunction(()=>window.__game.driving);await page.keyboard.up('KeyE');
+  expect(await page.evaluate(()=>window.__game.car.lockState)).toBe('ready');
+});
+
+test('ducking behind real cover blocks incoming and outgoing shots; peeking and leaning expose the muzzle',async({page})=>{
+  await enterClaim(page);
+  await page.evaluate(()=>{
+    const g=window.__game;g.enemies.forEach(e=>e.health=0);
+    const enemy=g.enemies[0];enemy.health=200;enemy.group.position.set(-3.6,0,8);enemy.moveTimer=Infinity;enemy.moveGoal=enemy.group.position.clone();enemy.cooldown=Infinity;window.__coverTarget=enemy;
+    g.characters.slice(1).forEach(p=>p.cooldown=Infinity);
+    const p=g.player;p.draw=0;p.group.rotation.y=0;g.yaw=0;g.pitch=-.04;
+  });
+  await page.waitForFunction(()=>window.__game.player.crouched&&window.__game.player.body.scale.y<.7);
+  const before=await page.evaluate(()=>window.__game.shots);
+  await page.mouse.down();await page.waitForFunction(n=>window.__game.shots>n+1,before);await page.mouse.up();
+  expect(await page.evaluate(()=>window.__coverTarget.health)).toBe(200);
+  const protectedHealth=await page.evaluate(()=>{
+    const g=window.__game,e=window.__coverTarget,random=Math.random;Math.random=()=>0;
+    const before=g.player.health;e.cooldown=0;try{g.updateAI(.016);}finally{Math.random=random;}
+    e.cooldown=Infinity;return{before,after:g.player.health};
+  });
+  expect(protectedHealth.after).toBe(protectedHealth.before);
+  await page.mouse.down({button:'right'});
+  await page.waitForFunction(()=>window.__game.player.peek&&window.__game.player.body.position.y>.29);
+  await page.mouse.down();await page.waitForFunction(()=>window.__coverTarget.health<200);await page.mouse.up();
+  await page.keyboard.down('KeyX');await page.waitForFunction(()=>window.__game.player.body.position.x>.8&&window.__game.player.body.position.y<-.2);
+  expect(await page.evaluate(()=>{
+    const g=window.__game;g.scene.updateMatrixWorld(true);const from=g.player.guns[0].muzzle.getWorldPosition(g.player.group.position.clone());const to=window.__coverTarget.group.position.clone();to.y+=1.2;return g.hasLineOfSight(from,to);
+  })).toBe(true);
+  await page.screenshot({path:'test-results/claim-cover-peek.png'});
+  await page.keyboard.up('KeyX');await page.mouse.up({button:'right'});await page.keyboard.press('KeyV');
+  await page.waitForFunction(()=>!window.__game.player.crouched&&window.__game.player.body.scale.y>.95);
+});
+
+test('CLAIM THE BLOCK enforces all four body-count gates, crew capture, cypher and side lane; reward never stacks',async({page})=>{
+  test.setTimeout(90000);
+  await enterClaim(page);
+  expect(await page.evaluate(()=>window.__game.characters.every(p=>p.health===125&&p.maxHealth===125&&p.crouched))).toBe(true);
+  await clearClaimWave(page);
+  expect(await page.evaluate(()=>window.__game.claim.point)).toBe(0);
+  await gatherCrew(page);await page.waitForFunction(()=>window.__game.claim.point===1);
+  expect(await page.evaluate(()=>window.__game.enemies.filter(e=>e.claimWave===1).length)).toBe(8);
+  await page.evaluate(()=>window.__game.enemies.forEach(e=>e.cooldown=Infinity));
+  await clearClaimWave(page);await gatherCrew(page);
+  expect(await page.evaluate(()=>window.__game.claim.point)).toBe(1);
+  await page.keyboard.press('Digit2');await page.keyboard.press('KeyE');
+  await page.waitForFunction(()=>Boolean(window.__game.rap));
+  for(const [i,key]of['KeyJ','KeyK','KeyL','KeyJ','KeyL','KeyK','KeyJ','KeyL'].entries()){
+    await page.waitForFunction(i=>window.__game.rap&&window.__game.rap.time>=1.5+i*.65-.14,i);await page.keyboard.press(key);
+  }
+  await page.waitForFunction(()=>window.__game.claim.point===2);
+  await page.evaluate(()=>window.__game.enemies.forEach(e=>e.cooldown=Infinity));
+  await clearClaimWave(page);await gatherCrew(page);
+  expect(await page.evaluate(()=>window.__game.claim.point)).toBe(2);
+  await page.keyboard.press('Digit3');await page.evaluate(()=>window.__game.player.group.position.set(6,0,-44));await page.keyboard.press('KeyE');
+  expect(await page.evaluate(()=>window.__game.claim.exitTagged)).toBe(true);
+  await page.keyboard.down('KeyW');await page.waitForFunction(()=>window.__game.player.group.position.z< -46.2);await page.keyboard.up('KeyW');
+  await page.waitForFunction(()=>window.__game.claim.point===3);
+  expect(await page.evaluate(()=>window.__game.enemies.filter(e=>e.claimWave===3).length)).toBe(12);
+  await page.evaluate(()=>window.__game.enemies.forEach(e=>e.cooldown=Infinity));
+  await clearClaimWave(page);await gatherCrew(page);
+  await expect(page.locator('#result-title')).toHaveText('BLOCKCLAIMED.');
+  await expect(page.locator('#body-count-0')).toContainText('BODY 36');
+  await page.locator('#restart').click();
+  await page.waitForFunction(()=>window.__game.level===2&&window.__game.claim.point===0&&!window.__game.finished);
+  expect(await page.evaluate(()=>window.__game.characters.every(p=>p.maxHealth===125))).toBe(true);
+  await page.keyboard.press('Escape');await page.locator('#quit').click();
+  expect(await page.evaluate(()=>({level:__game.level,cover:__game.claimProps.length,hp:__game.player.maxHealth}))).toEqual({level:1,cover:0,hp:100});
+});
+
+test('crew walks around starting barricades and captures the first Claim checkpoint without teleporting',async({page})=>{
+  await enterClaim(page);
+  await page.evaluate(()=>window.__game.enemies.forEach(e=>{e.health=0;e.group.visible=false;}));
+  await page.keyboard.down('KeyD');
+  // Cross the narrow gap at crouch speed and release on a render frame.
+  // A single software-rendered frame can advance up to .25 simulation seconds.
+  await page.evaluate(()=>new Promise(resolve=>{
+    const stopAtGap=()=>{
+      if(window.__game.player.group.position.x> -2.2){window.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyD'}));resolve();}
+      else requestAnimationFrame(stopAtGap);
+    };
+    stopAtGap();
+  }));
+  await page.keyboard.up('KeyD');
+  await page.keyboard.press('KeyV');
+  await page.keyboard.down('KeyW');
+  await page.waitForFunction(()=>window.__game.player.group.position.z< -4,null,{timeout:20000});
+  await page.keyboard.up('KeyW');
+  await page.waitForFunction(()=>window.__game.claim.point===1,null,{timeout:20000});
+  expect(await page.evaluate(()=>window.__game.characters.every(p=>p.group.position.z<2))).toBe(true);
 });

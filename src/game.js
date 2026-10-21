@@ -4,6 +4,7 @@ import { buildNeighborhood } from './neighborhood.js';
 import { buildHair, buildWeapon } from './models.js';
 import { OBJECTIVES, RAP_PATTERN, RAP_LINES, BEAT_SECONDS, RAP_PASS, DRIVE_ROUTE, combatTarget, combatComplete, beatTime, createRap, judgeRap, advanceCar } from './mission.js';
 
+import { CLAIM_POINTS, livingOpps, missionOneCleared, waveCount, beginClaimBlock, updateClaimBlock, clearClaimProps } from './campaign.js';
 import { DrillMusic } from './music.js';
 import { moveEnemy } from './enemies.js';
 import { updateVehicleCrew } from './vehicle-crew.js';
@@ -46,6 +47,7 @@ export class Game {
     this.shooting = false;
     this.aiming = false;
     this.stage = 0;
+    this.level=1;this.claim=null;this.carWork=null;this.missionOneKills=null;
     this.progress = 0;
     this.elapsed = 0;
     this.shots = 0;
@@ -178,7 +180,7 @@ export class Game {
       const primary = [buildWeapon(this, person.primary, model.arms, .4)];
       if (i === 2) primary.push(buildWeapon(this, person.primary, model.arms, -.36));
       model.guns.forEach(gun => { gun.group.visible = false; });
-      return { ...model, guns: primary, weaponRigs: [primary, model.guns], index: i, health: 100, loadout: createLoadout(person.primary), slot: 0,
+      return { ...model, guns: primary, weaponRigs: [primary, model.guns], index: i, health: 100, maxHealth:100, crouched:false, peek:false, coverAnchor:null, loadout: createLoadout(person.primary), slot: 0,
         velocityY: 0, grounded: true, slide: 0, slideDirection: new THREE.Vector3(), draw: WEAPONS[person.primary].draw,
         reloading: 0, cooldown: 0, recoil: 0, flashTime: 0, aiCooldown: 0, kills: 0, specialKills: 0, xp: charges[i], lastHitAt: -Infinity, aiPlanCooldown: 0, aiGoal: null, aiState: 'FOLLOWING' };
     });
@@ -219,6 +221,7 @@ export class Game {
         return;
       }
       if (event.code === 'KeyE') this.interact();
+      if(event.code==='KeyV'&&!this.driving&&!this.carWork)this.player.crouched=!this.player.crouched;
       if (event.code==='KeyF') this.requestSpecial();
       if (this.driving) {
         if(event.code==='Digit1')this.enterGunner(0);
@@ -232,12 +235,14 @@ export class Game {
       if (event.code === 'KeyQ') this.swapWeapon();
       if (event.code === 'KeyR') this.beginReload();
       if (event.code === 'Space' && this.player.grounded) {
+        this.player.crouched=false;
         this.player.velocityY = 7.8;
         this.player.grounded = false;
       }
       if (event.code === 'KeyC' && this.player.grounded && this.player.slide <= 0) {
         const direction = this.moveDirection();
         this.player.slideDirection.copy(direction.lengthSq() > 0 ? direction : new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)));
+        this.player.crouched=false;
         this.player.slide = .7;
       }
     });
@@ -298,12 +303,14 @@ export class Game {
   }
 
   reset() {
+    if(this.level===2){beginClaimBlock(this,true);this.start();return;}
     this.resetMission();
     this.start();
   }
 
   resetMission() {
     this.music.stop();this.lookHold=0;this.narrationDurations.clear();
+    clearClaimProps(this);this.level=1;this.claim=null;this.carWork=null;this.missionOneKills=null;
     this.running = this.started = this.finished = this.shooting = this.aiming = this.driving = false;
     this.keys.clear();
     this.active = this.stage = this.progress = this.elapsed = this.shots = this.hits = this.kills = 0;
@@ -326,10 +333,11 @@ export class Game {
     this.effects = []; this.enemies = [];
     this.buildCrew(); this.buildEnemies();
     Object.assign(this.car, { speed: 0, yaw: 0, gate: 0, integrity: 100, collisionCooldown: 0 });
+    this.car.lockState='locked';this.car.group.visible=true;this.car.windowMeshes.forEach(mesh=>mesh.visible=true);
     this.car.group.position.set(4,0,-38); this.car.group.rotation.set(0,0,0);
     this.routeMarkers.forEach(marker => { marker.ring.visible = marker.label.visible = false; });
-    this.terminals.forEach(terminal => { terminal.marker.visible = true; terminal.ring.material.opacity = .4; });
-    ['#result', '#pause-menu', '#rap-panel', '#drive-panel', '#interaction', '#hud'].forEach(selector => $(selector).classList.add('hidden'));
+    this.terminals.forEach(terminal => { terminal.ring.visible=true;terminal.marker.visible = true; terminal.ring.material.opacity = .4; });
+    ['#result', '#pause-menu', '#rap-panel', '#drive-panel', '#car-work-panel', '#interaction', '#hud'].forEach(selector => $(selector).classList.add('hidden'));
     this.updateCamera(1); this.updateHUD();
   }
 
@@ -347,8 +355,9 @@ export class Game {
     if (!this.running || index === this.active || this.rap) return;
     if (this.characters[index].health <= 0) { this.toast('Crew member down. Restart to bring everyone home.'); return; }
     this.player.slide = 0;
-    this.player.body.position.y = 0;
+    this.player.body.position.set(0,0,0);this.player.body.scale.y=1;this.player.crouched=false;this.player.peek=false;
     this.player.body.rotation.x = 0;
+    this.carWork=null;document.querySelector('#car-work-panel').classList.add('hidden');
     this.player.legs.forEach(leg => { leg.rotation.x = 0; });
     this.active = index;
     this.player.draw = WEAPONS[this.weaponState.id].draw;
@@ -393,17 +402,22 @@ export class Game {
     const p = this.player;
     const direction = this.moveDirection();
     const sprinting = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
-    const speed = this.aiming ? 3.3 : sprinting ? 8 : 5.1;
+    if(sprinting)p.crouched=false;
+    const speed = p.crouched?2.1:this.aiming ? 3.3 : sprinting ? 8 : 5.1;
     const sliding = p.slide > 0;
     this.moveWithCollision(p, (sliding ? p.slideDirection : direction).clone().multiplyScalar((sliding ? 11 * (.5 + p.slide) : speed) * dt));
     p.slide = Math.max(0, p.slide - dt);
     this.updateGravity(p, dt);
     p.group.rotation.y += angleDelta(p.group.rotation.y, this.yaw) * Math.min(1, dt * 9);
     p.recoil = damp(p.recoil, 0, 6, dt);
-    p.body.position.y = damp(p.body.position.y, sliding ? -.55 : 0, 15, dt);
+    p.peek=p.crouched&&this.aiming;
+    const lean=p.peek?(this.keys.has('KeyZ')?-1.4:this.keys.has('KeyX')?.9:0):0;
+    p.body.position.x=damp(p.body.position.x,lean,18,dt);
+    p.body.scale.y=damp(p.body.scale.y,p.crouched?.65:1,18,dt);
+    p.body.position.y = damp(p.body.position.y, sliding ? -.55 : p.crouched?p.peek&&!lean?.32:-.25:0, 15, dt);
     p.body.rotation.x = damp(p.body.rotation.x, sliding ? .16 : 0, 12, dt);
     p.arms.rotation.x = damp(p.arms.rotation.x, this.pitch + p.recoil - p.body.rotation.x + (p.draw > 0 || p.reloading > 0 ? -.85 : 0), 12, dt);
-    p.legs.forEach((leg, i) => { leg.rotation.x = sliding ? 1.35 : direction.lengthSq() > 0 && p.grounded ? Math.sin(this.elapsed * speed * 2.2 + i * Math.PI) * .55 : p.grounded ? 0 : (i ? -.5 : .6); });
+    p.legs.forEach((leg, i) => { leg.rotation.x = sliding ? 1.35 : p.crouched?.45: direction.lengthSq() > 0 && p.grounded ? Math.sin(this.elapsed * speed * 2.2 + i * Math.PI) * .55 : p.grounded ? 0 : (i ? -.5 : .6); });
     if (this.shooting && p.draw <= 0 && p.reloading <= 0 && p.cooldown <= 0) this.shoot(p);
   }
 
@@ -523,7 +537,8 @@ export class Game {
       const distance = target.group.position.distanceTo(enemy.group.position);
       if (distance > 26 || this.rap || this.driving) continue;
       const origin = enemy.group.position.clone().add(new THREE.Vector3(0, 1.5, 0));
-      const destination = target.group.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+      const targetHeight=target.crouched?(target.peek&&Math.abs(target.body.position.x)<.3?1.35:.65):1.35;
+      const destination = target.group.position.clone().add(new THREE.Vector3(target.body.position.x,targetHeight,0).applyAxisAngle(UP,target.group.rotation.y));
       const direction = destination.clone().sub(origin);
       enemy.group.rotation.y += angleDelta(enemy.group.rotation.y, Math.atan2(-direction.x, -direction.z)) * Math.min(1, dt * 4);
       enemy.cooldown -= dt;
@@ -548,7 +563,19 @@ export class Game {
   }
 
   interact() {
-    if (this.rap) return;
+    if (this.rap || this.carWork) return;
+    if(this.level===2){
+      const point=CLAIM_POINTS[this.claim.point];
+      if(waveCount(this)<point.quota)return;
+      if(point.role===1&&!this.claim.verseDone&&this.active===1&&Math.abs(this.player.group.position.z-point.z)<7){
+        this.rap=createRap();this.rap.purpose='claim';this.shooting=this.aiming=false;this.keys.clear();
+        $('#rap-panel').classList.remove('hidden');this.toast('Doom: This corner needs a verse.',3.5);
+      }
+      if(point.role===2&&!this.claim.exitTagged&&this.active===2&&this.player.group.position.distanceTo(new THREE.Vector3(6,0,-44))<3){
+        this.claim.exitTagged=true;this.awardXP(2,15);this.toast('Z78: Side lane clear. Bring the crew up.');
+      }
+      return;
+    }
     if (this.driving) {this.exitCar();return;}
     const objective = OBJECTIVES[this.stage];
     if (!objective || this.active !== objective.character) return;
@@ -560,12 +587,35 @@ export class Game {
       $('#rap-panel').classList.remove('hidden');
       this.toast('Doom: Watch me catch this pocket.',3.5);
     } else if (this.stage === 2 && distance < 4.5) {
-      this.driving = true;
-      this.shooting = this.aiming = false;
-      this.keys.clear();
-      this.characters.forEach(p => { p.group.visible = false; });
-      $('#drive-panel').classList.remove('hidden');
-      this.toast('Z78: Hop in. I drive, y’all cover. 1 Draco, 2 doom, 3 wheel.');
+      if(this.car.lockState==='ready'){this.boardCar();return;}
+      this.carWork={phase:this.car.lockState==='locked'?'break':'wire',progress:0};
+      this.shooting=this.aiming=false;$('#car-work-panel').classList.remove('hidden');
+    }
+  }
+
+  boardCar(){
+    this.driving=true;this.shooting=this.aiming=false;this.keys.clear();
+    this.characters.forEach(p=>{p.crouched=false;p.peek=false;p.body.scale.y=1;p.body.position.x=0;});
+    $('#drive-panel').classList.remove('hidden');
+    this.toast('Z78: Engine’s live. Hop in. 1 Draco, 2 doom, 3 wheel.');
+  }
+
+  updateCarWork(dt){
+    const task=this.carWork;
+    if(!task)return;
+    if(this.active!==2||!this.keys.has('KeyE')||this.player.group.position.distanceTo(this.car.group.position)>4.5){
+      this.carWork=null;$('#car-work-panel').classList.add('hidden');return;
+    }
+    const duration=task.phase==='break'?1.6:3;
+    task.progress+=dt;
+    $('#car-work-title').textContent=task.phase==='break'?'BREAK INTO THE CAR':'HOTWIRE THE ENGINE';
+    $('#car-work-progress').style.width=`${Math.min(1,task.progress/duration)*100}%`;
+    if(task.progress>=duration){
+      this.carWork=null;$('#car-work-panel').classList.add('hidden');
+      if(task.phase==='break'){
+        this.car.lockState='opened';this.car.windowMeshes[0].visible=false;this.awardXP(2,10);
+        this.toast('Z78: I’m in. Hold E again to get it running.');
+      }else{this.car.lockState='ready';this.awardXP(2,20);this.boardCar();}
     }
   }
 
@@ -618,7 +668,7 @@ export class Game {
       const turn=angleDelta(car.yaw,desired);
       input={forward:car.speed<4.5,left:turn>.06,right:turn<-.06,brake:Math.abs(turn)>.6 && car.speed>3};
     }
-    if(car.gate===DRIVE_ROUTE.length)input={brake:true};
+    if(car.gate===DRIVE_ROUTE.length&&this.gunner)input={brake:true};
     const movement=advanceCar(car,input,dt);
     const old=car.group.position.clone();
     car.group.position.x+=movement.x;car.group.position.z+=movement.z;
@@ -657,11 +707,9 @@ export class Game {
         if(this.hasLineOfSight(from,to)){this.tracer(from,to,'#e6a58d');car.integrity=Math.max(0,car.integrity-1);}
       }
     }
-    if(this.ambushStarted&&this.driveByKills<2&&!this.enemies.some(e=>e.driveBy&&e.health>0))this.startAmbush();
+
     if(car.integrity<=0)this.finish(false);
-    else if(car.gate===DRIVE_ROUTE.length&&this.driveByKills>=2){
-      this.awardXP(2,XP_REWARDS.escape);this.stage=3;this.finish(true);
-    }
+
   }
 
   beatSound() {
@@ -677,6 +725,8 @@ export class Game {
   }
 
   updateObjectives(dt) {
+    if(missionOneCleared(this)){this.awardXP(2,XP_REWARDS.escape);beginClaimBlock(this);return;}
+    if(this.level===2){this.updateClaimRap(dt);updateClaimBlock(this);return;}
     if (this.stage >= OBJECTIVES.length) return;
     this.reinforcementTimer = Math.max(0,this.reinforcementTimer-dt);
     if (this.stage === 0) {
@@ -719,12 +769,23 @@ export class Game {
     });
     const prompt = $('#interaction');
     prompt.classList.add('hidden');
-    if (!objective || this.stage===0 || this.rap || this.driving) return;
+    if (!objective || this.stage===0 || this.rap || this.driving || this.carWork) return;
     const position = this.stage===2 ? this.car.group.position : new THREE.Vector3(...objective.position);
     const radius = this.stage===2 ? 4.5 : 3;
     if(this.player.group.position.distanceTo(position)<radius) {
       prompt.classList.remove('hidden');
-      prompt.innerHTML = this.active===objective.character ? `<kbd>E</kbd> ${this.stage===1 ? 'TAKE THE MIC' : 'ENTER GETAWAY CAR'}<small>${this.stage===1 ? 'J / K / L · Land 6 of 8 beats' : 'W / S drive · A / D steer · Space brake · E exit'}</small>` : `SWITCH TO ${ROSTER[objective.character].name.toUpperCase()}<small>Press ${objective.character+1} · This is their part of the story.</small>`;
+      prompt.innerHTML = this.active===objective.character ? `<kbd>E</kbd> ${this.stage===1 ? 'TAKE THE MIC' : this.car.lockState==='locked'?'HOLD TO BREAK IN':this.car.lockState==='opened'?'HOLD TO HOTWIRE':'ENTER GETAWAY CAR'}<small>${this.stage===1 ? 'J / K / L · Land 6 of 8 beats' : 'W / S drive · A / D steer · Space brake · E exit'}</small>` : `SWITCH TO ${ROSTER[objective.character].name.toUpperCase()}<small>Press ${objective.character+1} · This is their part of the story.</small>`;
+    }
+  }
+
+  updateClaimRap(dt){
+    if(!this.rap)return;
+    const rap=this.rap,previous=rap.time;rap.time+=dt;
+    for(let i=0;i<RAP_PATTERN.length;i++)if(previous<beatTime(i)&&rap.time>=beatTime(i))this.beatSound();
+    if(rap.time>beatTime(7)+.5){
+      this.rapScore=rap.hits;this.rap=null;$('#rap-panel').classList.add('hidden');
+      if(this.rapScore>=RAP_PASS){this.claim.verseDone=true;this.awardXP(1,XP_REWARDS.rap);this.toast('Doom: Verse stamped. This corner’s ours.',4);}
+      else this.toast(`${this.rapScore}/8. Run that verse again. E near the capture zone.`);
     }
   }
 
@@ -738,11 +799,11 @@ export class Game {
     $('#hud').classList.add('hidden');
     $('#result').classList.remove('hidden');
     $('#pause-menu').classList.add('hidden');
-    $('#result-tag').textContent = success ? 'OPERATION COMPLETE / CHAPTER 01' : 'CREW MEMBER DOWN';
-    $('#result-title').innerHTML = success ? 'CREW<br>EXTRACTED.' : 'NO ONE<br>LEFT BEHIND.';
+    $('#result-tag').textContent = success ? this.level===2?'MISSION 02 COMPLETE':'OPERATION COMPLETE / CHAPTER 01' : 'CREW MEMBER DOWN';
+    $('#result-title').innerHTML = success ? this.level===2?'BLOCK<br>CLAIMED.':'CREW<br>EXTRACTED.' : 'NO ONE<br>LEFT BEHIND.';
     const minutes = Math.floor(this.elapsed / 60);
     const seconds = String(Math.floor(this.elapsed % 60)).padStart(2, '0');
-    $('#result-detail').textContent = success ? `Enter CHIRAQ complete. ${minutes}:${seconds} · Draco: ${this.characters[0].kills} takedowns · doom: ${this.rapScore || 0}/8 beats · Z78: 3/3 route markers · Ambush: ${this.driveByKills}/2. The crew rides out together.` : this.car.integrity <= 0 ? 'The getaway car is wrecked. Brake for corners and avoid parked cars.' : 'The escape needs all three characters alive. Use cover, keep moving, and switch before a crew member gets overwhelmed.';
+    $('#result-detail').textContent = success&&this.level===2 ? `CLAIM THE BLOCK complete. Four checkpoints cleared. ${this.characters.map((p,i)=>`${ROSTER[i].name}: ${p.kills}`).join(' · ')} total bodies.` : success ? `Enter CHIRAQ complete. ${minutes}:${seconds} · Draco: ${this.characters[0].kills} takedowns · doom: ${this.rapScore || 0}/8 beats · Z78: 3/3 route markers · Ambush: ${this.driveByKills}/2. The crew rides out together.` : this.car.integrity <= 0 ? 'The getaway car is wrecked. Brake for corners and avoid parked cars.' : 'The escape needs all three characters alive. Use cover, keep moving, and switch before a crew member gets overwhelmed.';
   }
 
   awardXP(index,amount) {
@@ -775,7 +836,7 @@ export class Game {
     const p = this.driving && !this.gunner ? this.car.group.position : this.player.group.position;
     const direction = new THREE.Vector3(-Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.cos(this.yaw) * Math.cos(this.pitch));
     const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
-    const focus = p.clone().add(new THREE.Vector3(0,this.gunner?1.4:this.player.slide>0?.95:1.7,0));
+    const focus = p.clone().add(new THREE.Vector3(0,this.gunner?1.4:this.player.slide>0?.95:this.player.crouched?this.player.peek?1.25:.9:1.7,0));
     const distance = this.gunner ? this.aiming?2.6:3.8 : this.driving ? 8.5 : this.aiming ? 3.1 : 5.6;
     const offset = direction.clone().multiplyScalar(-distance).addScaledVector(right, this.aiming ? .65 : 1.05);
     if(this.gunner) {
@@ -809,9 +870,11 @@ export class Game {
     document.querySelectorAll('.squad-card').forEach((card, i) => {
       card.classList.toggle('selected', i === this.active);
       card.querySelector('.active-label').textContent = i===this.active?'ACTIVE':this.driving?i===2?'DRIVING':'RIDING':this.characters[i].aiState;
+      $(`#body-count-${i}`).textContent=`BODY ${this.characters[i].kills}`;
+      $(`#hp-label-${i}`).textContent=`HP ${Math.ceil(this.characters[i].health)}/${this.characters[i].maxHealth}`;
       $(`#xp-${i}`).style.width=`${this.characters[i].xp}%`;
       $(`#xp-label-${i}`).textContent=this.characters[i].xp>=XP_CAP?'SPECIAL READY':`XP ${this.characters[i].xp}/100`;
-      $(`#health-${i}`).style.width = `${this.characters[i].health}%`;
+      $(`#health-${i}`).style.width = `${this.characters[i].health/this.characters[i].maxHealth*100}%`;
     });
     const objective = OBJECTIVES[Math.min(this.stage, 2)];
     $('#objective-title').textContent = objective.title;
@@ -819,13 +882,30 @@ export class Game {
     $('#mission-step').textContent = `0${Math.min(this.stage + 1, 3)} / 03`;
     const target = combatTarget(this.characters.map(p => p.kills));
     const progress = this.stage === 0 ? this.characters[0].kills / target : this.stage === 1 ? (this.rap?.hits || 0) / 8 : this.car.gate / 3;
+    $('#enemy-remaining').textContent=`OPPS LEFT ${livingOpps(this)}`;
+    $('#chapter-label').textContent=this.level===2?'MISSION 02':'MISSION 01';
+    $('#level-title').textContent=this.level===2?'CLAIM THE BLOCK':'ENTER CHIRAQ';
+    $('#stance-status').textContent=this.driving?'':this.player.crouched?'DUCKING · RMB PEEK · Z / X LEAN':'V DUCK · RMB AIM';
     $('#objective-progress').style.width = `${Math.min(1,progress)*100}%`;
     $('#objective-count').textContent = this.stage === 0 ? `DRACO ${this.characters[0].kills}/${target} · OR SPECIAL OPP ${this.characters[0].specialKills>0?'DOWN':'MARKED'}` : this.stage === 1 ? `HIT ${RAP_PASS} OF 8 BEATS · J / K / L` : `ROUTE ${this.car.gate}/3 · AMBUSH ${this.driveByKills}/2`;
+    if(this.level===1&&this.stage===2){
+      const alive=this.enemies.filter(e=>e.health>0).sort((a,b)=>a.group.position.distanceToSquared(this.player.group.position)-b.group.position.distanceToSquared(this.player.group.position));
+      $('#objective-count').textContent=this.car.lockState!=='ready'?`CAR ${this.car.lockState==='locked'?'LOCKED · HOLD E TO BREAK IN':'OPEN · HOLD E TO HOTWIRE'}`:`OPPS LEFT ${alive.length}${alive[0]?` · NEAREST ${Math.round(alive[0].group.position.distanceTo(this.player.group.position))}m`:''}`;
+      if(this.car.lockState==='ready')$('#objective-progress').style.width=`${this.enemies.length?(this.enemies.length-alive.length)/this.enemies.length*100:0}%`;
+    }
+    if(this.level===2){
+      const point=CLAIM_POINTS[this.claim.point],count=waveCount(this);
+      $('#objective-title').textContent=point.name;
+      $('#objective-description').textContent=point.role===1&&!this.claim.verseDone?'Clear the opps, then doom drops a corner cypher.':point.role===2&&!this.claim.exitTagged?'Clear the opps, then Z78 tags the purple side-lane marker.':'Clear every opp, then bring the whole crew into the capture zone.';
+      $('#mission-step').textContent=`0${this.claim.point+1} / 04`;
+      $('#objective-count').textContent=`BODIES ${count}/${point.quota} · CREW ${this.characters.filter(p=>Math.abs(p.group.position.z-point.z)<=5&&Math.abs(p.group.position.x)<10).length}/3 IN ZONE`;
+      $('#objective-progress').style.width=`${Math.min(1,count/point.quota)*100}%`;
+    }
     $('#crosshair').classList.toggle('hidden',this.driving&&!this.gunner&&!this.shooting&&!this.aiming || Boolean(this.rap));
     $('.weapon-panel').classList.toggle('hidden',Boolean(this.rap));
     $('#drive-mode').textContent=this.active===0?'DRACO / BACK SEAT':this.active===1?'DOOM / PASSENGER':'Z78 / DRIVE & FIRE';
     $('#drive-help').textContent=this.gunner?'MOUSE AIM · LMB FIRE · R RELOAD · 1 / 2 / 3 SWITCH':'WASD DRIVE · MOUSE AIM · LMB FIRE · R RELOAD';
-    $('#drive-kills').textContent=`AMBUSH CLEARED ${this.driveByKills}/2`;
+    $('#drive-kills').textContent=`OPPS LEFT ${livingOpps(this)}`;
     $('#special-status').textContent=this.player.xp>=XP_CAP?'SPECIAL READY · ABILITY COMING LATER':`SPECIAL CHARGE ${this.player.xp}/100`;
     $('#drive-speed').textContent = Math.round(Math.abs(this.car.speed)*3.6);
     $('#car-integrity').textContent = `${Math.round(this.car.integrity)}%`;
@@ -904,13 +984,17 @@ export class Game {
           }
         }
         if (this.driving) this.updateDriving(step);
+        else if(this.carWork)this.updateCarWork(step);
         else if (!this.rap) this.updatePlayer(step);
         this.updateAI(step);
         if (this.running) this.updateObjectives(step);
       }
       this.toastTime = Math.max(0, this.toastTime - dt);
       if(this.toastTime===0&&this.narrationQueue.length)this.showNextNarration();
-      this.enemies.forEach(enemy=>{if(enemy.badge&&enemy.health>0){enemy.badge.position.copy(enemy.group.position).add(new THREE.Vector3(0,3,0));enemy.badge.lookAt(this.camera.position);}});
+      this.enemies.forEach(enemy=>{
+        if(this.level===1&&this.stage===2&&enemy.health>0&&!enemy.badge)enemy.badge=this.label('OPP','#ffd1a3',2,enemy.group.position.x,3,enemy.group.position.z);
+        if(enemy.badge&&enemy.health>0){enemy.badge.position.copy(enemy.group.position).add(new THREE.Vector3(0,3,0));enemy.badge.lookAt(this.camera.position);}
+      });
       this.music.setDucked(Boolean(this.rap));
       this.hitTime = Math.max(0, this.hitTime - dt);
       this.damageTime = Math.max(0, this.damageTime - dt);
