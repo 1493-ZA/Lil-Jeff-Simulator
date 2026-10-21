@@ -31,6 +31,16 @@ test('reload never creates ammunition when no spares remain', () => {
   assert.deepEqual(state.rounds, [3]);
 });
 
+test('a driver can empty one akimbo pistol without firing the steering hand',()=>{
+  const state=createLoadout('akimbo')[0];
+  for(let i=0;i<50;i++)assert.equal(fireRound(state,0),0);
+  assert.equal(fireRound(state,0),-1);
+  assert.deepEqual(state.rounds,[0,50]);
+  reload(state);
+  assert.deepEqual(state.rounds,[50,50]);
+  assert.equal(state.spares,5);
+});
+
 test('partial reload discards the old magazine and consumes one spare', () => {
   const state = createLoadout('arp')[0];
   fireRound(state);

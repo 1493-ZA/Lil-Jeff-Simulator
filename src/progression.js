@@ -16,6 +16,5 @@ export function awardCharge(character, amount) {
 }
 
 export function narrationDuration(message) {
-  // About 100 words per minute, with a minimum long enough for short dialogue.
-  return Math.max(12, Math.min(35, 4 + message.trim().split(/\s+/).length * .65));
+  return Math.max(6, Math.min(16, 2 + message.trim().split(/\s+/).length * .38));
 }

@@ -15,7 +15,11 @@ export function createLoadout(primary) {
   return [primary, 'switch'].map(id => ({ id, rounds: Array(WEAPONS[id].barrels).fill(WEAPONS[id].capacity), spares: WEAPONS[id].spares, nextBarrel: 0 }));
 }
 
-export function fireRound(state) {
+export function fireRound(state, preferredBarrel = null) {
+  if (preferredBarrel !== null) {
+    if (state.rounds[preferredBarrel] > 0) { state.rounds[preferredBarrel]--; return preferredBarrel; }
+    return -1;
+  }
   const count = state.rounds.length;
   for (let offset = 0; offset < count; offset++) {
     const barrel = (state.nextBarrel + offset) % count;

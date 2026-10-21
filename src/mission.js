@@ -1,7 +1,7 @@
 export const OBJECTIVES = [
   { title: 'Settle the score', description: 'King Draco · Drop 3 armed opps OR the marked Special Opp.', character: 0, position: [0, 0, -7], color: '#ffac65' },
   { title: 'Own the mic', description: 'Lil doom · Reach the sidewalk mic. Press E, then hit J / K / L on the beat.', character: 1, position: [-11, 0, -25], color: '#76ddd0' },
-  { title: 'Ride out', description: 'Z78 drives. After the first marker, press 1: Draco fires from the back seat at the armed ambush.', character: 2, position: [4, 0, -38], color: '#bca1ff' },
+  { title: 'Ride out', description: 'Crew covers every side. 1 Draco · 2 doom · 3 Z78. Clear 2 ambushers and all route markers.', character: 2, position: [4, 0, -38], color: '#bca1ff' },
 ];
 
 export const RAP_PATTERN = ['KeyJ', 'KeyK', 'KeyL', 'KeyJ', 'KeyL', 'KeyK', 'KeyJ', 'KeyL'];

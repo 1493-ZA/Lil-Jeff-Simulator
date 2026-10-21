@@ -349,7 +349,7 @@ test('narration queues, can be reread, and XP stays saved without consuming an u
     const g=window.__game;g.enemies.forEach(e=>e.cooldown=Infinity);
     g.toast('First line for a slow reader.');g.toast('Second line waits its turn.');g.awardXP(1,60);
   });
-  expect(await page.evaluate(()=>window.__game.toastTime)).toBeGreaterThan(10);
+  expect(await page.evaluate(()=>window.__game.toastTime)).toBeGreaterThan(4);
   expect(await page.evaluate(()=>window.__game.narrationQueue.includes('Second line waits its turn.'))).toBe(true);
   await page.keyboard.press('Escape');
   await page.locator('.dialogue-history summary').click();
@@ -365,4 +365,102 @@ test('narration queues, can be reread, and XP stays saved without consuming an u
   await page.keyboard.press('KeyF');
   expect(await page.evaluate(()=>window.__game.player.xp)).toBe(100);
   expect(await page.evaluate(()=>window.__game.dialogueLog.some(line=>line.includes('not assigned yet')))).toBe(true);
+});
+
+test('normal opps and the Special Opp patrol with moving legs and attached markers',async({page})=>{
+  await enter(page);
+  const before=await page.evaluate(()=>{
+    const g=window.__game;g.enemies.forEach(e=>e.cooldown=Infinity);
+    return [g.enemies[0],g.enemies.find(e=>e.special)].map(e=>({x:e.group.position.x,z:e.group.position.z}));
+  });
+  await page.waitForFunction(points=>{
+    const g=window.__game;
+    return [g.enemies[0],g.enemies.find(e=>e.special)].every((e,i)=>Math.hypot(e.group.position.x-points[i].x,e.group.position.z-points[i].z)>1);
+  },before);
+  expect(await page.evaluate(()=>window.__game.enemies.some(e=>e.legs.some(l=>Math.abs(l.rotation.x)>.1)))).toBe(true);
+  expect(await page.evaluate(()=>{const e=window.__game.enemies.find(e=>e.special);return Math.abs(e.badge.position.x-e.group.position.x)+Math.abs(e.badge.position.z-e.group.position.z);})).toBeLessThan(.1);
+});
+
+test('crew fires autonomously, driver shoots one-handed while steering, and AI driving can run over opps',async({page})=>{
+  await enter(page);
+  await page.evaluate(()=>{
+    const g=window.__game;g.enemies.forEach(e=>e.health=0);g.stage=2;g.switchCharacter(2);g.player.group.position.set(4,0,-34);
+  });
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(()=>window.__game.driving);
+  await page.evaluate(()=>{
+    const g=window.__game;
+    for(const [x,z]of[[-4,-38],[7.5,-38]]){
+      const e=g.spawnEnemy(x,z);e.health=10000;e.cooldown=Infinity;e.moveTimer=Infinity;e.moveGoal=e.group.position.clone();
+    }
+  });
+  await page.waitForFunction(()=>window.__game.characters[0].loadout[0].rounds[0]<100&&window.__game.characters[1].loadout[0].rounds[0]<50);
+  expect(await page.evaluate(()=>window.__game.active)).toBe(2);
+  expect(await page.evaluate(()=>window.__game.characters[2].guns[1].group.visible)).toBe(false);
+  const start=await page.evaluate(()=>window.__game.car.group.position.z);
+  await page.keyboard.down('KeyW');
+  await page.mouse.down();
+  await page.waitForFunction(z=>window.__game.car.group.position.z<z-.8&&window.__game.characters[2].loadout[0].rounds[0]<50,start);
+  await page.mouse.up();await page.keyboard.up('KeyW');
+  expect(await page.evaluate(()=>window.__game.characters[2].loadout[0].rounds[1])).toBe(50);
+  await page.keyboard.press('Digit2');
+  await page.waitForFunction(()=>window.__game.active===1&&window.__game.gunner);
+  const passengerStart=await page.evaluate(()=>window.__game.car.group.position.z);
+  await page.waitForFunction(z=>window.__game.car.group.position.z<z-.5,passengerStart);
+  await page.evaluate(()=>{
+    const g=window.__game,p=g.car.group.position;
+    const e=g.spawnEnemy(p.x,p.z-3.1);e.health=65;e.driveBy=true;e.cooldown=Infinity;e.moveTimer=Infinity;e.moveGoal=e.group.position.clone();window.__ramTarget=e;
+  });
+  await page.waitForFunction(()=>window.__ramTarget.health<=0);
+  expect(await page.evaluate(()=>window.__game.characters[2].kills)).toBeGreaterThanOrEqual(1);
+  expect(await page.evaluate(()=>window.__game.driveByKills)).toBeGreaterThanOrEqual(1);
+  expect(await page.evaluate(()=>window.__game.active)).toBe(1);
+  await page.keyboard.press('Digit1');
+  await page.waitForFunction(()=>window.__game.active===0&&window.__game.gunner);
+  const dracoStart=await page.evaluate(()=>window.__game.car.group.position.z);
+  await page.waitForFunction(z=>window.__game.car.group.position.z<z-.4,dracoStart);
+  await page.screenshot({path:'test-results/crew-vehicle.png'});
+  await page.keyboard.press('Digit3');
+  expect(await page.evaluate(()=>({active:__game.active,gunner:__game.gunner}))).toEqual({active:2,gunner:false});
+});
+
+test('subtitles are compact bottom text and original music has audible output, mute, pause and rap ducking',async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await enter(page);
+  const subtitle=await page.locator('#toast').evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return{top:r.top,bottom:r.bottom,height:r.height,background:s.backgroundColor,border:s.borderTopWidth,screen:innerHeight};});
+  expect(subtitle.top).toBeGreaterThan(subtitle.screen*.75);
+  expect(subtitle.bottom).toBeLessThan(subtitle.screen-30);
+  expect(subtitle.height).toBeLessThan(100);
+  expect(subtitle.background).toBe('rgba(0, 0, 0, 0)');
+  expect(subtitle.border).toBe('0px');
+  await page.evaluate(()=>{
+    const g=window.__game;g.enemies.forEach(e=>e.cooldown=Infinity);
+    const analyser=g.audio.createAnalyser();analyser.fftSize=2048;g.music.bus.connect(analyser);window.__musicAnalyser=analyser;
+  });
+  await page.waitForFunction(()=>{
+    const data=new Float32Array(2048);window.__musicAnalyser.getFloatTimeDomainData(data);return data.some(v=>Math.abs(v)>.0005);
+  });
+  expect(await page.evaluate(()=>window.__game.music.active)).toBe(true);
+  await page.keyboard.press('KeyM');
+  await expect(page.locator('#music-toggle')).toHaveText('MUSIC OFF');
+  expect(await page.evaluate(()=>window.__game.music.muted)).toBe(true);
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(()=>window.__game.music.active)).toBe(false);
+  await page.locator('#music-volume').fill('35');
+  await page.locator('#resume').click();
+  expect(await page.evaluate(()=>window.__game.music.volume)).toBe(.35);
+  await page.keyboard.press('KeyM');
+  await page.evaluate(()=>{
+    const g=window.__game;g.narrationQueue=[];g.toastTime=0;g.stage=1;g.switchCharacter(1);g.player.group.position.set(-11,0,-23);g.narrationQueue=[];g.toastTime=0;
+  });
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(()=>window.__game.music.ducked);
+  expect(await page.evaluate(()=>window.__game.toastTime)).toBeLessThanOrEqual(3.5);
+  await expect(page.locator('#toast-text')).toHaveText('Doom: Watch me catch this pocket.');
+  await page.screenshot({path:'test-results/compact-subtitles.png'});
+  await page.keyboard.press('Escape');await page.locator('#quit').click();
+  expect(await page.evaluate(()=>window.__game.music.active)).toBe(false);
+  await page.reload();await page.waitForFunction(()=>Boolean(window.__game));
+  expect(await page.evaluate(()=>window.__game.music.volume)).toBe(.35);
+  expect(errors).toEqual([]);
 });

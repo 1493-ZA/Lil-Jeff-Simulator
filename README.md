@@ -43,9 +43,10 @@ The expected address after a successful deployment is `https://evanickert.github
 | J / K / L | Match the scrolling rap notes at the timing line |
 | WASD while driving | Accelerate, reverse, and steer |
 | Space while driving | Brake |
-| 1 after the first route marker | Draco shoots from the back seat while Z78 drives |
-| 3 in the back seat | Return to manual driving as Z78 |
+| 1 / 2 / 3 in the car | Draco in back / doom in the passenger seat / Z78 driving |
+| Mouse + fire while driving | Aim and fire one pistol while WASD steers |
 | N | Next narration line |
+| M | Mute / unmute mission music |
 | F | Check the selected character's special charge (abilities not assigned yet) |
 | Esc | Pause; choose Resume or Return to Main Menu |
 
@@ -57,17 +58,23 @@ Inactive teammates follow in formation, choose nearby cover, retreat when hurt, 
 
 1. **King Draco — Settle the score:** score three takedowns of armed fictional opponents **or** defeat the marked **Special Opp**. Teammate scores never increase the requirement. The Special Opp has more health and a distinct jacket/marker. Reinforcements prevent running out of targets before Draco completes his fixed goal.
 2. **Lil doom — Own the mic:** switch to doom, find the teal sidewalk mic outside the corner store, and press E. Press J / K / L when the matching notes cross the bright line. Hit at least six of eight notes to finish the original verse. Wrong keys consume the note; off-beat mashing earns nothing. A failed verse can be retried at the mic. The task includes a synthesized beat and original on-screen lyrics, not recorded vocals.
-3. **Z78 and Draco — Ride out:** switch to Z78 and press E by the purple-marked sedan. Use W/S to drive and reverse, A/D to steer, and Space to brake. After the first purple ring, an armed ambush appears. Press **1** to control Draco leaning out of the back seat while Z78 automatically follows the remaining route. Aim with the mouse and fire/reload/swap normally; get two back-seat takedowns. Press **3** to drive manually again. The escape requires all three route markers **and** the two back-seat takedowns. The car stops at the end of the route if shooting is unfinished. Collisions and incoming ambush fire damage the vehicle. E exits the vehicle while controlling the driver; you can re-enter to continue.
+3. **Crew — Ride out:** switch to Z78 and press E by the purple-marked sedan. Use W/S to drive/reverse, A/D to steer, and Space to brake. **The checkpoint never forces a character switch.** Draco provides autonomous fire from the back seat while you drive; doom also covers the passenger side. Press **1** to control Draco or **2** to control doom: Z78 automatically drives the route while you aim/fire/reload/swap. Press **3** to drive Z78 again. Mouse aiming and firing work while driving, with only one pistol firing so his other hand can steer. The second pistol's ammunition stays untouched until used on foot. Inactive crew use weaker fire, finite ammunition, and their own reloads.
 
-Brick flats, stoops, corner businesses, utility poles, parked cars, alley dumpsters, and an elevated train crossing replace the harbor. Generated asphalt grain, cracks, surface bump mapping, a dusk sky, less matte glass, and rounded character bodies/facial details improve the original block models. These remain procedural prototype graphics. This is a fictional block, not a recreation of an actual gang location. Draco has loose shoulder-length locs; Z78 has a tied crown with longer, purple-tipped locs. Doom retains his original hair. Opponent AI is still a simple stationary prototype.
+After the first purple ring an armed ambush appears. Finish the three route markers and clear two ambushers. Player shots, autonomous crew shots, and vehicle impacts all count; vehicle takedowns credit Z78. AI driving uses the same impact rules and may run over opponents. The car waits at the route end if the ambush is unfinished. Collisions and incoming ambush fire damage the vehicle. E exits from any occupied seat; you can re-enter as Z78 to continue.
 
-**Narration:** lines stay up for at least 12 seconds and scale up to 35 seconds with their length. New lines queue instead of overwriting an unread line. N advances early. Press Esc and expand **Read Dialogue History** to read received lines at your own pace. Pausing freezes mission and narration timers.
+Brick flats, stoops, corner businesses, utility poles, parked cars, alley dumpsters, and an elevated train crossing replace the harbor. Generated asphalt grain, cracks, surface bump mapping, a dusk sky, less matte glass, and rounded character bodies/facial details improve the original block models. These remain procedural prototype graphics. This is a fictional block, not a recreation of an actual gang location. Draco has loose shoulder-length locs; Z78 has a tied crown with longer, purple-tipped locs. Doom retains his original hair. Normal opponents patrol and strafe; the Special Opp moves faster and can advance toward the player. Movement avoids solid obstacles, uses leg animation, and keeps overhead markers attached. This is local steering rather than a full navigation mesh.
+
+**Narration:** compact, unfilled text appears at the bottom of the screen with a contrasting text shadow. Most lines last 6–16 seconds based on length. The short rap intro lasts 3.5 seconds and the completion line lasts 4 seconds. New lines queue instead of overwriting an unread line. N advances early. Press Esc and expand **Read Dialogue History** to read received lines at your own pace. Pausing freezes mission and narration timers.
 
 **Quit a mission:** press Esc, then **Return to Main Menu**. This ends the current run and resets crew health, ammunition, scores, rap state, the car, and the route. Resume preserves progress. Both the rap and driving tasks support pause/quit. The result screen also offers Return to Main Menu or Run It Back. No page reload is needed.
 
+## Mission music
+
+An original, locally synthesized drill-inspired instrumental plays during the mission: a 140 BPM pattern with sliding sub-bass, half-time percussion, hi-hat rolls and a minor-key melody. It contains no streamed songs or sampled recordings. Music begins after entering the mission, pauses with gameplay, and stops at the main menu or results. It fades out during doom's rap challenge so the existing timing beat stays clear. Press **M** to mute; the header also has a toggle and volume slider. Volume/mute preferences are saved in this browser. Audio is optional if the browser cannot initialize it.
+
 ## XP and special charge
 
-Each character has a separate 100 XP special meter. Normal kills grant 20 XP, the Special Opp grants 40, Draco's combat task grants 40, doom's successful verse grants 60, each driving marker grants Z78 15, the escape grants Z78 40, and Draco's back-seat task grants another 30. Charge caps at 100 and displays **SPECIAL READY**. F reports the status; no ability effect or charge consumption is implemented because the character abilities will be designed later.
+Each character has a separate 100 XP special meter. Normal kills grant 20 XP, the Special Opp grants 40, Draco's combat task grants 40, doom's successful verse grants 60, each driving marker grants Z78 15, the escape grants Z78 40, and clearing the ambush grants another 30 to the character who finishes it. Charge caps at 100 and displays **SPECIAL READY**. F reports the status; no ability effect or charge consumption is implemented because the character abilities will be designed later.
 
 Special charge persists between runs and reloads using this browser's local storage. Mission health/ammunition/checkpoints still reset. Progress does not sync across devices; clearing site data clears charge, and disabled storage can prevent it persisting across reloads.
 
@@ -90,10 +97,10 @@ npm run build
 npm run test:browser
 ```
 
-Browser tests use `/usr/bin/chromium` by default; set `CHROMIUM_PATH` to another Chromium executable if needed. They exercise movement/slide pose/firing, finite ammunition, real muzzle hits and cover, rap timing, both combat-goal branches, safe weaker companions, narration history/queueing, saved XP, and pause/quit/reset across activities. The full-story test scores actual muzzle hits, sends timed rap inputs, drives through every route gate without teleporting the car, then aims and fires from the back seat at the live ambush while Z78 drives. Tests use deterministic actor placement, aim assistance and suppressed enemy AI in isolated scenarios. This is not a full difficulty or manual playability assessment.
+Browser tests use `/usr/bin/chromium` by default; set `CHROMIUM_PATH` to another Chromium executable if needed. They exercise movement/slide pose/firing, finite ammunition, real muzzle hits and cover, rap timing, both combat-goal branches, safe weaker companions, narration history/queueing, saved XP, and pause/quit/reset across activities. Additional tests verify moving opponents/attached markers, autonomous crew fire, one-handed driver ammunition, shooting while driving, AI vehicle impacts, bottom subtitle placement, audible music output, mute/volume persistence and rap ducking. The full-story test scores actual muzzle hits, sends timed rap inputs, drives through every route gate without teleporting the car, then aims and fires from the back seat at the live ambush while Z78 drives. Tests use deterministic actor placement, aim assistance and suppressed enemy AI in isolated scenarios. This is not a full difficulty or manual playability assessment.
 
 The `?test=1` query exposes a diagnostic game object for browser tests. Normal gameplay does not expose it. Browser screenshots are generated in ignored `test-results/`.
 
 ## Current scope
 
-Procedural prototype models, one mission, desktop keyboard/mouse only, synthesized firing/beat sounds, and local special-charge saving. No multiplayer, mission saves, assigned special abilities, or mobile controls. Production character art, full weapon animation, richer squad navigation, recorded rap vocals, a larger driving map, campaign writing, and final balancing remain future work.
+Procedural prototype models, one mission, desktop keyboard/mouse only, synthesized firing/beat sounds and an original drill-style music loop, and local special-charge saving. No multiplayer, mission saves, assigned special abilities, or mobile controls. Production character art, full weapon animation, richer squad navigation, recorded rap vocals, a larger driving map, campaign writing, and final balancing remain future work.

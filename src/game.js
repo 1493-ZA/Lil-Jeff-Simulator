@@ -4,6 +4,9 @@ import { buildNeighborhood } from './neighborhood.js';
 import { buildHair, buildWeapon } from './models.js';
 import { OBJECTIVES, RAP_PATTERN, RAP_LINES, BEAT_SECONDS, RAP_PASS, DRIVE_ROUTE, combatTarget, combatComplete, beatTime, createRap, judgeRap, advanceCar } from './mission.js';
 
+import { DrillMusic } from './music.js';
+import { moveEnemy } from './enemies.js';
+import { updateVehicleCrew } from './vehicle-crew.js';
 import { updateCompanions } from './companions.js';
 import { XP_CAP, XP_REWARDS, XP_KEY, readCharges, awardCharge, narrationDuration } from './progression.js';
 
@@ -61,6 +64,9 @@ export class Game {
     this.hitTime = 0;
     this.damageTime = 0;
     this.audio = null;
+    this.music=new DrillMusic();
+    this.narrationDurations=new Map();
+    this.lookHold=0;
     this.raycaster = new THREE.Raycaster();
     this.buildWorld();
     this.buildCrew();
@@ -150,14 +156,16 @@ export class Game {
       return pivot;
     });
     const arms=new THREE.Group();arms.position.set(0,1.5,0);body.add(arms);
+    let leftArm=null;
     for(const x of [-.36,.4]) {
+      const limb=new THREE.Group();limb.position.x=x;arms.add(limb);if(x<0)leftArm=limb;
       const sleeve=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.38,4,8),this.material(cloth));
-      sleeve.rotation.x=Math.PI/2;sleeve.position.set(x,-.08,-.24);sleeve.castShadow=true;arms.add(sleeve);
-      round(x,-.08,-.53,.085,.08,.10,skin,arms);
+      sleeve.rotation.x=Math.PI/2;sleeve.position.set(0,-.08,-.24);sleeve.castShadow=true;limb.add(sleeve);
+      round(0,-.08,-.53,.085,.08,.10,skin,limb);
     }
     const guns=[buildWeapon(this,'switch',arms,.4)];
     group.userData.torso=torso;this.scene.add(group);
-    const person={group,body,legs,arms,guns};
+    const person={group,body,legs,arms,guns,leftArm};
     if(identity===0 || identity===2)person.hair=buildHair(this,person,identity===0?0:1);
     return person;
   }
@@ -204,6 +212,7 @@ export class Game {
       if (!this.running) return;
       this.keys.add(event.code);
       if (event.repeat) return;
+      if(event.code==='KeyM'){this.music.toggle();this.updateMusicUI();return;}
       if(event.code==='KeyN'){this.toastTime=0;this.showNextNarration();return;}
       if (this.rap) {
         if (['KeyJ', 'KeyK', 'KeyL'].includes(event.code)) judgeRap(this.rap, event.code);
@@ -212,10 +221,11 @@ export class Game {
       if (event.code === 'KeyE') this.interact();
       if (event.code==='KeyF') this.requestSpecial();
       if (this.driving) {
-        if(event.code==='Digit1')this.enterGunner();
+        if(event.code==='Digit1')this.enterGunner(0);
+        if(event.code==='Digit2')this.enterGunner(1);
         if(event.code==='Digit3')this.returnToDriver();
-        if(this.gunner && event.code==='KeyQ')this.swapWeapon();
-        if(this.gunner && event.code==='KeyR')this.beginReload();
+        if(event.code==='KeyQ')this.swapWeapon();
+        if(event.code==='KeyR')this.beginReload();
         return;
       }
       if (/^Digit[123]$/.test(event.code)) this.switchCharacter(Number(event.code.slice(-1)) - 1);
@@ -237,14 +247,15 @@ export class Game {
     document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && this.running) this.pause(); });
     document.addEventListener('mousemove', event => {
       if (!this.running || document.pointerLockElement !== this.canvas) return;
+      this.lookHold=2;
       this.yaw -= event.movementX * .0023;
       this.pitch = clamp(this.pitch - event.movementY * .002, -.85, .65);
     });
     this.canvas.addEventListener('mousedown', event => {
       if (!this.running) return;
       this.captureMouse();
-      if (event.button === 0 && !this.rap && (!this.driving || this.gunner)) this.shooting = true;
-      if (event.button === 2 && !this.rap && (!this.driving || this.gunner)) this.aiming = true;
+      if (event.button === 0 && !this.rap) this.shooting = true;
+      if (event.button === 2 && !this.rap) this.aiming = true;
     });
     window.addEventListener('mouseup', event => {
       if (event.button === 0) this.shooting = false;
@@ -270,13 +281,14 @@ export class Game {
     $('#pause-menu').classList.add('hidden');
     $('#hud').classList.remove('hidden');
     this.captureMouse();
-    try { this.audio ??= new AudioContext(); this.audio.resume(); } catch { /* Audio is optional. */ }
+    try { this.audio ??= new AudioContext(); this.audio.resume();this.music.setDucked(Boolean(this.rap));this.music.start(this.audio);this.updateMusicUI(); } catch { /* Audio is optional. */ }
     if(!resuming)this.toast('Draco: Aight, stay close. Three opps or their shot caller. Then doom gets his verse off and Z gets us out.');
   }
 
   pause() {
     if (!this.started || this.finished) return;
     this.running = false;
+    this.music.stop();
     this.shooting = this.aiming = false;
     this.keys.clear();
     if (document.pointerLockElement) document.exitPointerLock();
@@ -291,6 +303,7 @@ export class Game {
   }
 
   resetMission() {
+    this.music.stop();this.lookHold=0;this.narrationDurations.clear();
     this.running = this.started = this.finished = this.shooting = this.aiming = this.driving = false;
     this.keys.clear();
     this.active = this.stage = this.progress = this.elapsed = this.shots = this.hits = this.kills = 0;
@@ -330,7 +343,7 @@ export class Game {
   get weapon() { return WEAPONS[this.weaponState.id]; }
 
   switchCharacter(index) {
-    if(this.driving){if(index===0)this.enterGunner();if(index===2)this.returnToDriver();return;}
+    if(this.driving){if(index===0||index===1)this.enterGunner(index);if(index===2)this.returnToDriver();return;}
     if (!this.running || index === this.active || this.rap) return;
     if (this.characters[index].health <= 0) { this.toast('Crew member down. Restart to bring everyone home.'); return; }
     this.player.slide = 0;
@@ -408,7 +421,7 @@ export class Game {
   shoot(character) {
     const state = character.loadout[character.slot];
     const weapon = WEAPONS[state.id];
-    const barrel = fireRound(state);
+    const barrel = fireRound(state,this.driving&&character.index===2?0:null);
     character.cooldown = 60 / weapon.rpm;
     if (barrel < 0) {
       if (character === this.player) { this.beginReload(); if (!state.spares) this.toast('Out of ammunition. Q to swap weapons.'); }
@@ -451,20 +464,22 @@ export class Game {
     if (victim) {
       victim.health = Math.max(0, victim.health - weapon.damage * (support ? .18 : 1) * clamp(weapon.range / Math.max(1, distance), .4, 1));
       if (character === this.player) { this.hits++; this.hitTime = .14; }
-      if (victim.health <= 0) {
-        victim.group.rotation.z = Math.PI / 2;
-        victim.group.position.y = .35;
-        victim.group.traverse(mesh => { if (mesh.isMesh) mesh.material.color.multiplyScalar(.45); });
-        this.kills++;
-        character.kills++;
-        if(victim.special)character.specialKills++;
-        this.awardXP(character.index,victim.special?XP_REWARDS.special:XP_REWARDS.kill);
-        if(victim.badge)victim.badge.visible=false;
-        if(victim.driveBy && this.gunner && character.index===0) {
-          this.driveByKills++;
-          if(this.driveByKills===2){this.awardXP(0,XP_REWARDS.driveBy);this.toast('Draco: We good! Z, take us home.');}
-        }
-      }
+      if (victim.health <= 0) this.defeatEnemy(victim,character.index);
+    }
+  }
+
+  defeatEnemy(victim,index) {
+    if(victim.defeated)return;
+    victim.health=0;victim.defeated=true;
+    victim.group.rotation.z=Math.PI/2;victim.group.position.y=.35;
+    victim.group.traverse(mesh=>{if(mesh.isMesh)mesh.material.color.multiplyScalar(.45);});
+    this.kills++;this.characters[index].kills++;
+    if(victim.special)this.characters[index].specialKills++;
+    this.awardXP(index,victim.special?XP_REWARDS.special:XP_REWARDS.kill);
+    if(victim.badge)victim.badge.visible=false;
+    if(victim.driveBy&&this.driving){
+      this.driveByKills++;
+      if(this.driveByKills===2){this.awardXP(index,XP_REWARDS.driveBy);this.toast('Draco: We good! Z, take us home.');}
     }
   }
 
@@ -501,6 +516,7 @@ export class Game {
   updateAI(dt) {
     for (const enemy of this.enemies) {
       if (enemy.health <= 0) continue;
+      moveEnemy(this,enemy,dt);
       const candidates = this.characters.filter(p => p.health > 0).sort((a,b) => a.group.position.distanceToSquared(enemy.group.position) - b.group.position.distanceToSquared(enemy.group.position));
       const target = candidates[0];
       if (!target) continue;
@@ -533,10 +549,7 @@ export class Game {
 
   interact() {
     if (this.rap) return;
-    if (this.driving) {
-      if(this.gunner){this.toast('Draco: I got the back seat. Press 3 to take the wheel again.');return;}
-      this.exitCar(); return;
-    }
+    if (this.driving) {this.exitCar();return;}
     const objective = OBJECTIVES[this.stage];
     if (!objective || this.active !== objective.character) return;
     const distance = this.player.group.position.distanceTo(this.stage === 2 ? this.car.group.position : new THREE.Vector3(...objective.position));
@@ -545,14 +558,14 @@ export class Game {
       this.shooting = this.aiming = false;
       this.keys.clear();
       $('#rap-panel').classList.remove('hidden');
-      this.toast('Doom: Watch me catch this pocket. Eight beats, six clean. Tap J / K / L when the note hits the line.');
+      this.toast('Doom: Watch me catch this pocket.',3.5);
     } else if (this.stage === 2 && distance < 4.5) {
       this.driving = true;
       this.shooting = this.aiming = false;
       this.keys.clear();
       this.characters.forEach(p => { p.group.visible = false; });
       $('#drive-panel').classList.remove('hidden');
-      this.toast('Z78: Hop in, we out. W / S gas and reverse. A / D steer. Space brakes. After the first ring, press 1 for Draco in the back seat.');
+      this.toast('Z78: Hop in. I drive, y’all cover. 1 Draco, 2 doom, 3 wheel.');
     }
   }
 
@@ -562,7 +575,7 @@ export class Game {
     this.car.speed = 0;
     this.keys.clear();
     this.characters.forEach((p,i) => {
-      p.group.visible = true; p.legs.forEach(leg=>leg.visible=true);p.body.position.y=0;p.body.rotation.x=0;
+      p.group.visible = true; p.legs.forEach(leg=>leg.visible=true);p.body.position.y=0;p.body.rotation.x=0;if(p.leftArm)p.leftArm.rotation.x=0;
       p.group.position.copy(this.car.group.position).add(new THREE.Vector3((i-1)*2.2,0,3));
       p.group.position.y = 0;
       p.grounded = true; p.velocityY = 0;
@@ -576,25 +589,21 @@ export class Game {
       const enemy=this.spawnEnemy(x,z);enemy.driveBy=true;enemy.health=65;
       enemy.badge=this.label('ARMED OPP','#ffb891',2.3,x,3,z);
     }
-    this.toast('Z78: They posted up ahead. Draco, back seat! Press 1 and cover us. I got the wheel.');
+    this.toast('Z78: They posted up ahead. Cover us—I got the wheel.');
   }
 
-  enterGunner() {
-    if(!this.driving || this.gunner)return;
-    if(this.car.gate<1){this.toast('Z78: Let me clear this first turn. Then Draco takes the back seat.');return;}
-    this.active=0;this.gunner=true;this.shooting=this.aiming=false;this.keys.clear();
-    const p=this.player;p.group.visible=true;p.legs.forEach(leg=>leg.visible=false);
-    p.draw=this.weapon.draw;p.grounded=true;p.velocityY=0;p.slide=0;
-    this.yaw=this.car.yaw+Math.PI/2;this.pitch=-.02;
-    this.toast('Draco: Say less. Mouse to aim, hold fire. Z drives while I cover. R reload, Q swap, 3 back to driving.');
+  enterGunner(index=0) {
+    if(!this.driving || this.active===index)return;
+    this.active=index;this.gunner=true;this.shooting=this.aiming=false;this.keys.clear();
+    const p=this.player;p.draw=this.weapon.draw;p.grounded=true;p.velocityY=0;p.slide=0;
+    this.yaw=this.car.yaw+(index===1?-Math.PI/2:Math.PI/2);this.pitch=-.02;
+    this.toast(index===0?'Draco: I got this side.':'Doom: Passenger side, I’m on it.');
   }
 
   returnToDriver() {
     if(!this.driving || !this.gunner)return;
-    const p=this.player;p.group.visible=false;p.legs.forEach(leg=>leg.visible=true);
-    p.body.position.y=0;p.body.rotation.x=0;
     this.active=2;this.gunner=false;this.shooting=this.aiming=false;
-    this.yaw=this.car.yaw;this.pitch=-.13;this.keys.clear();
+    this.yaw=this.car.yaw;this.pitch=-.13;this.lookHold=0;this.keys.clear();
   }
 
   updateDriving(dt) {
@@ -623,15 +632,18 @@ export class Game {
     }
     car.group.rotation.y=car.yaw;
     car.wheels.forEach(wheel=>{wheel.rotation.x+=car.speed*dt*2;});
-    if(this.gunner){
-      const crew=this.player;
-      crew.group.position.copy(new THREE.Vector3(-1.2,.25,.8).applyAxisAngle(UP,car.yaw).add(p));
-      crew.group.rotation.y+=angleDelta(crew.group.rotation.y,this.yaw)*Math.min(1,dt*10);
-      crew.body.position.y=-.1;crew.body.rotation.x=0;
-      crew.recoil=damp(crew.recoil,0,6,dt);
-      crew.arms.rotation.x=damp(crew.arms.rotation.x,this.pitch+crew.recoil+(crew.draw>0||crew.reloading>0?-.85:0),12,dt);
-      if(this.shooting&&crew.draw<=0&&crew.reloading<=0&&crew.cooldown<=0)this.shoot(crew);
-    }else{this.yaw=car.yaw;this.player.group.position.copy(p);}
+    this.lookHold=Math.max(0,this.lookHold-dt);
+    if(!this.gunner&&!this.aiming&&!this.shooting&&this.lookHold===0)this.yaw+=angleDelta(this.yaw,car.yaw)*Math.min(1,dt*3);
+    updateVehicleCrew(this,dt);
+    for(const enemy of this.enemies){
+      if(enemy.health<=0)continue;
+      const local=enemy.group.position.clone().sub(p).applyAxisAngle(UP,-car.yaw);
+      if(Math.abs(local.x)<1.6&&Math.abs(local.z)<2.6&&Math.abs(car.speed)>3&&!(enemy.ramCooldown>0)){
+        enemy.ramCooldown=.7;enemy.health-=Math.max(65,Math.abs(car.speed)*15);
+        if(enemy.health<=0)this.defeatEnemy(enemy,2);
+      }
+      enemy.ramCooldown=Math.max(0,(enemy.ramCooldown||0)-dt);
+    }
     const gate=DRIVE_ROUTE[car.gate];
     if(gate&&Math.hypot(p.x-gate[0],p.z-gate[1])<2.9&&car.speed>1){
       car.gate++;this.awardXP(2,XP_REWARDS.route);
@@ -691,7 +703,7 @@ export class Game {
         if (this.rapScore >= RAP_PASS) {
           this.stage = 2;
           this.awardXP(1,XP_REWARDS.rap);
-          this.toast(`Doom: ${this.rapScore}/8. Verse in the bag. Z, pull that whip around. Press 3.`);
+          this.toast(`Doom: ${this.rapScore}/8. Verse in the bag. Z, pull up.`,4);
         } else this.toast(`${this.rapScore}/8 beats. Need 6. Press E at the mic to try again.`);
       }
     }
@@ -719,6 +731,7 @@ export class Game {
   finish(success) {
     this.running = false;
     this.finished = true;
+    this.music.stop();
     this.shooting = false;
     this.keys.clear();
     if (document.pointerLockElement) document.exitPointerLock();
@@ -729,7 +742,7 @@ export class Game {
     $('#result-title').innerHTML = success ? 'CREW<br>EXTRACTED.' : 'NO ONE<br>LEFT BEHIND.';
     const minutes = Math.floor(this.elapsed / 60);
     const seconds = String(Math.floor(this.elapsed % 60)).padStart(2, '0');
-    $('#result-detail').textContent = success ? `Enter CHIRAQ complete. ${minutes}:${seconds} · Draco: ${this.characters[0].kills} takedowns · doom: ${this.rapScore || 0}/8 beats · Z78: 3/3 route markers · Back seat: ${this.driveByKills}/2. The crew rides out together.` : this.car.integrity <= 0 ? 'The getaway car is wrecked. Brake for corners and avoid parked cars.' : 'The escape needs all three characters alive. Use cover, keep moving, and switch before a crew member gets overwhelmed.';
+    $('#result-detail').textContent = success ? `Enter CHIRAQ complete. ${minutes}:${seconds} · Draco: ${this.characters[0].kills} takedowns · doom: ${this.rapScore || 0}/8 beats · Z78: 3/3 route markers · Ambush: ${this.driveByKills}/2. The crew rides out together.` : this.car.integrity <= 0 ? 'The getaway car is wrecked. Brake for corners and avoid parked cars.' : 'The escape needs all three characters alive. Use cover, keep moving, and switch before a crew member gets overwhelmed.';
   }
 
   awardXP(index,amount) {
@@ -742,8 +755,9 @@ export class Game {
     this.toast(this.player.xp>=XP_CAP?'Special charged and saved. This character’s ability is not assigned yet.':'Keep earning XP from kills and tasks to charge this character’s special.');
   }
 
-  toast(message) {
+  toast(message,duration=null) {
     if(this.dialogueLog.at(-1)===message||this.narrationQueue.includes(message))return;
+    if(duration!==null)this.narrationDurations.set(message,duration);
     this.dialogueLog.push(message);if(this.dialogueLog.length>50)this.dialogueLog.shift();
     this.narrationQueue.push(message);
     if(this.toastTime<=0)this.showNextNarration();
@@ -753,7 +767,8 @@ export class Game {
     const message=this.narrationQueue.shift();
     if(!message){this.toastTime=0;return;}
     $('#toast-text').textContent=message;
-    this.toastTime=narrationDuration(message);
+    this.toastTime=this.narrationDurations.get(message)??narrationDuration(message);
+    this.narrationDurations.delete(message);
   }
 
   updateCamera(dt) {
@@ -767,7 +782,7 @@ export class Game {
       // Lift the shoulder camera above the roof and toward the open left window.
       // A normal orbit otherwise puts the opaque car body between camera and gun.
       offset.y+=2;
-      offset.add(new THREE.Vector3(-2.5,0,0).applyAxisAngle(UP,this.car.yaw));
+      offset.add(new THREE.Vector3(this.active===1?2.5:-2.5,0,0).applyAxisAngle(UP,this.car.yaw));
     }
     const cameraRay = new THREE.Ray(focus, offset.clone().normalize());
     let allowed = offset.length();
@@ -805,12 +820,12 @@ export class Game {
     const target = combatTarget(this.characters.map(p => p.kills));
     const progress = this.stage === 0 ? this.characters[0].kills / target : this.stage === 1 ? (this.rap?.hits || 0) / 8 : this.car.gate / 3;
     $('#objective-progress').style.width = `${Math.min(1,progress)*100}%`;
-    $('#objective-count').textContent = this.stage === 0 ? `DRACO ${this.characters[0].kills}/${target} · OR SPECIAL OPP ${this.characters[0].specialKills>0?'DOWN':'MARKED'}` : this.stage === 1 ? `HIT ${RAP_PASS} OF 8 BEATS · J / K / L` : `ROUTE ${this.car.gate}/3 · BACK-SEAT TAKEDOWNS ${this.driveByKills}/2`;
-    $('#crosshair').classList.toggle('hidden',this.driving&&!this.gunner || Boolean(this.rap));
-    $('.weapon-panel').classList.toggle('hidden',this.driving&&!this.gunner || Boolean(this.rap));
-    $('#drive-mode').textContent=this.gunner?'DRACO / BACK-SEAT SHOOTER':'Z78 / THE GETAWAY';
-    $('#drive-help').textContent=this.gunner?'MOUSE AIM · LMB FIRE · R RELOAD · 3 DRIVE':this.car.gate<1?'WASD DRIVE · SPACE BRAKE · E EXIT':'1 BACK-SEAT GUNNER · WASD DRIVE · SPACE BRAKE';
-    $('#drive-kills').textContent=`BACK SEAT ${this.driveByKills}/2`;
+    $('#objective-count').textContent = this.stage === 0 ? `DRACO ${this.characters[0].kills}/${target} · OR SPECIAL OPP ${this.characters[0].specialKills>0?'DOWN':'MARKED'}` : this.stage === 1 ? `HIT ${RAP_PASS} OF 8 BEATS · J / K / L` : `ROUTE ${this.car.gate}/3 · AMBUSH ${this.driveByKills}/2`;
+    $('#crosshair').classList.toggle('hidden',this.driving&&!this.gunner&&!this.shooting&&!this.aiming || Boolean(this.rap));
+    $('.weapon-panel').classList.toggle('hidden',Boolean(this.rap));
+    $('#drive-mode').textContent=this.active===0?'DRACO / BACK SEAT':this.active===1?'DOOM / PASSENGER':'Z78 / DRIVE & FIRE';
+    $('#drive-help').textContent=this.gunner?'MOUSE AIM · LMB FIRE · R RELOAD · 1 / 2 / 3 SWITCH':'WASD DRIVE · MOUSE AIM · LMB FIRE · R RELOAD';
+    $('#drive-kills').textContent=`AMBUSH CLEARED ${this.driveByKills}/2`;
     $('#special-status').textContent=this.player.xp>=XP_CAP?'SPECIAL READY · ABILITY COMING LATER':`SPECIAL CHARGE ${this.player.xp}/100`;
     $('#drive-speed').textContent = Math.round(Math.abs(this.car.speed)*3.6);
     $('#car-integrity').textContent = `${Math.round(this.car.integrity)}%`;
@@ -843,6 +858,12 @@ export class Game {
     const projected = origin.addScaledVector(direction, distance).project(this.camera);
     $('#crosshair').style.left = `${clamp((projected.x + 1) * 50, 2, 98)}%`;
     $('#crosshair').style.top = `${clamp((1 - projected.y) * 50, 4, 96)}%`;
+  }
+
+  updateMusicUI() {
+    $('#music-toggle').textContent=this.music.muted?'MUSIC OFF':'MUSIC ON';
+    $('#music-toggle').setAttribute('aria-pressed',String(!this.music.muted));
+    $('#music-volume').value=String(Math.round(this.music.volume*100));
   }
 
   resize() {
@@ -889,7 +910,8 @@ export class Game {
       }
       this.toastTime = Math.max(0, this.toastTime - dt);
       if(this.toastTime===0&&this.narrationQueue.length)this.showNextNarration();
-      this.enemies.forEach(enemy=>{if(enemy.badge&&enemy.health>0)enemy.badge.lookAt(this.camera.position);});
+      this.enemies.forEach(enemy=>{if(enemy.badge&&enemy.health>0){enemy.badge.position.copy(enemy.group.position).add(new THREE.Vector3(0,3,0));enemy.badge.lookAt(this.camera.position);}});
+      this.music.setDucked(Boolean(this.rap));
       this.hitTime = Math.max(0, this.hitTime - dt);
       this.damageTime = Math.max(0, this.damageTime - dt);
       this.updateCamera(dt);

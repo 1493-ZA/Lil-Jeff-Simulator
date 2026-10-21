@@ -19,8 +19,8 @@ test('saved charges tolerate malformed, unavailable, and out-of-range storage',(
   assert.deepEqual(readCharges({getItem:()=>'[null,"20",5.6]'}),[0,0,5]);
 });
 
-test('slow-reader narration stays at least twelve seconds and scales with word count',()=>{
-  assert.equal(narrationDuration('Stay close.'),12);
-  assert.ok(narrationDuration(Array(30).fill('word').join(' '))>20);
-  assert.ok(narrationDuration(Array(100).fill('word').join(' '))<=35);
+test('compact narration uses shorter readable timing and still scales with word count',()=>{
+  assert.equal(narrationDuration('Stay close.'),6);
+  assert.ok(narrationDuration(Array(30).fill('word').join(' '))>10);
+  assert.ok(narrationDuration(Array(100).fill('word').join(' '))<=16);
 });

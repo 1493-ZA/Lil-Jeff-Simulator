@@ -15,7 +15,7 @@ document.querySelector('#app').innerHTML = `
   <div class="vignette"></div>
   <header class="topbar">
     <div class="brand"><span class="brand-mark">LJ<span>®</span></span><div>LIL JEFF <b>SIMULATOR</b><small>ENTER CHIRAQ / CHAPTER 01</small></div></div>
-    <div class="top-right"><span class="live-dot"></span> STORY MODE <span class="divider">/</span> CHAPTER 01 <button id="help-button" aria-label="Pause and show controls">ESC <span>MENU</span></button></div>
+    <div class="top-right"><div class="music-control"><button id="music-toggle" aria-label="Toggle mission music" aria-pressed="true">MUSIC ON</button><input id="music-volume" type="range" min="0" max="100" value="20" aria-label="Music volume"></div><span class="live-dot"></span> STORY MODE <span class="divider">/</span> CHAPTER 01 <button id="help-button" aria-label="Pause and show controls">ESC <span>MENU</span></button></div>
   </header>
   <main id="hud" class="hidden">
     <section class="mission-panel"><div class="eyebrow">OPERATION 001 <span id="mission-step">01 / 03</span></div><h2 id="objective-title">Settle the score</h2><p id="objective-description">King Draco · 3 armed opps or the Special Opp.</p><p id="objective-count" class="objective-count"></p><div class="objective-progress"><i id="objective-progress"></i></div><div class="mission-note"><span>◇</span> ALL THREE. ONE WAY OUT.</div></section>
@@ -29,12 +29,12 @@ document.querySelector('#app').innerHTML = `
     <div class="bottom-help"><span><kbd>W A S D</kbd> MOVE</span><span><kbd>SPACE</kbd> JUMP</span><span><kbd>SHIFT</kbd> SPRINT</span><span><kbd>C</kbd> SLIDE</span><span><kbd>LMB</kbd> FIRE</span><span><kbd>RMB</kbd> AIM</span></div>
     <div class="location"><span>◈</span> SOUTH SIDE <small>19:48 · FICTIONAL BLOCK</small></div>
     <section id="rap-panel" class="activity-panel hidden"><div class="eyebrow">LIL DOOM / SIDEWALK SESSION <span id="rap-score">0/8</span></div><h2 id="rap-lyric">Streetlights on, we make our own way</h2><div class="rap-lane"><div class="rap-target"></div><div id="rap-notes"></div></div><p id="rap-feedback">J / K / L when the note reaches the line</p><small>6 OF 8 TO PASS · ESC PAUSES THE BEAT</small></section>
-    <section id="drive-panel" class="activity-panel drive-panel hidden"><div class="eyebrow"><b id="drive-mode">Z78 / THE GETAWAY</b> <span id="drive-route">0/3</span></div><h2><span id="drive-speed">0</span> <small>KM/H</small></h2><p>CAR <b id="car-integrity">100%</b> · <b id="drive-kills">BACK SEAT 0/2</b></p><small id="drive-help">W / S DRIVE · A / D STEER · SPACE BRAKE · E EXIT</small></section>
+    <section id="drive-panel" class="activity-panel drive-panel hidden"><div class="eyebrow"><b id="drive-mode">Z78 / THE GETAWAY</b> <span id="drive-route">0/3</span></div><h2><span id="drive-speed">0</span> <small>KM/H</small></h2><p>CAR <b id="car-integrity">100%</b> · <b id="drive-kills">AMBUSH CLEARED 0/2</b></p><small id="drive-help">W / S DRIVE · A / D STEER · SPACE BRAKE · E EXIT</small></section>
     <div id="damage-flash"></div>
   </main>
   <section id="menu" class="menu">
     <div class="menu-content"><div class="eyebrow"><span class="live-dot"></span> THREE CHARACTERS. ONE STORY.</div><h1>ENTER<span>CHIRAQ.</span></h1><p class="intro">One block. Three names. A night to remember.<br>Draco clears the street. Doom owns the mic.<br>Z78 takes the wheel. Draco covers from the back.</p><button id="start" class="start-button">ENTER CHIRAQ <span>→</span></button><div class="menu-footnote">CHAPTER 01 <i></i> SINGLE PLAYER <i></i> THIRD PERSON</div></div>
-    <aside class="briefing"><div class="eyebrow">MISSION BRIEF / 001</div><h3>Everyone has<br>a part to play.</h3>${ROSTER.map((p,i) => `<div class="brief-row"><span style="color:${p.color}">0${i+1}</span><div><b>${p.name}</b><p>${p.description}</p></div></div>`).join('')}<div class="controls-note">WASD move · Mouse look · Click fire<br>Space jump · Shift sprint · C slide<br>1–3 switch · Q weapon · R reload · E interact<br><br>Headphones optional. Keyboard + mouse required.<br>Esc: pause / return to main menu.<br>At the mic: J / K / L on beat.<br>Driving: WASD · Space brake · E exit.<br>After first ring: 1 back-seat shooter · 3 driver.<br>N next narration · F special charge status.</div></aside>
+    <aside class="briefing"><div class="eyebrow">MISSION BRIEF / 001</div><h3>Everyone has<br>a part to play.</h3>${ROSTER.map((p,i) => `<div class="brief-row"><span style="color:${p.color}">0${i+1}</span><div><b>${p.name}</b><p>${p.description}</p></div></div>`).join('')}<div class="controls-note">WASD move · Mouse look · Click fire<br>Space jump · Shift sprint · C slide<br>1–3 switch · Q weapon · R reload · E interact<br><br>Headphones optional. Keyboard + mouse required.<br>Esc: pause / return to main menu.<br>At the mic: J / K / L on beat.<br>Driving: WASD · Space brake · E exit.<br>In car: 1 Draco · 2 doom · 3 driver.<br>WASD drive + mouse fire at the same time.<br>N next narration · F special status · M music.</div></aside>
     <div class="menu-bottom">SOUTH SIDE INSPIRED / FICTIONAL CHICAGO BLOCK <span>EARLY BUILD · ORIGINAL PLACEHOLDER ART</span></div>
   </section>
   <section id="pause-menu" class="menu hidden" aria-label="Mission paused"><div class="result-content"><div class="eyebrow">ENTER CHIRAQ / MISSION PAUSED</div><h1>TAKE A<br>BREATHER.</h1><p>Your mission is paused. Return to the block or end this run.</p><button id="resume" class="start-button">RESUME MISSION <span>→</span></button><button id="quit" class="secondary-button">RETURN TO MAIN MENU</button><p class="quit-note">Mission progress resets. Earned special charge stays saved.</p><details class="dialogue-history"><summary>READ DIALOGUE HISTORY</summary><div id="narration-log"></div></details></div></section>
@@ -44,6 +44,9 @@ document.querySelector('#app').innerHTML = `
 
 try {
   const game = new Game(document.querySelector('#world'));
+  game.updateMusicUI();
+  document.querySelector('#music-toggle').addEventListener('click',()=>{game.music.toggle();game.updateMusicUI();});
+  document.querySelector('#music-volume').addEventListener('input',event=>{game.music.setVolume(Number(event.target.value)/100);game.updateMusicUI();});
   document.querySelector('#start').addEventListener('click', () => game.start());
   document.querySelector('#help-button').addEventListener('click', () => game.pause());
   document.querySelector('#resume').addEventListener('click', () => game.start());
