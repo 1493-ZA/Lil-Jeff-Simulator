@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 export function buildHair(game, person, style) {
   const hair = new THREE.Group();
@@ -83,13 +84,17 @@ export function buildCar(game, position = [4, 0, -38]) {
   group.position.set(...position);
   group.name = 'Z78 getaway sedan';
   game.scene.add(group);
-  const box = (w,h,d,color,x,y,z) => game.box(w,h,d,color,x,y,z,{parent:group});
+  const box = (w,h,d,color,x,y,z) => {const mesh=game.box(w,h,d,color,x,y,z,{parent:group,roughness:.3,metalness:.45});mesh.geometry.dispose();mesh.geometry=new RoundedBoxGeometry(w,h,d,3,Math.min(.07,w/4,h/4,d/4));return mesh;};
   box(2.5,.65,4.8,'#343340',0,.9,0);
-  box(2.2,.8,2.4,'#242735',0,1.57,.1);
-  box(2.05,.6,.03,'#587782',0,1.64,-1.12);
+  // Pillars and roof rails leave a genuine opening above the cabin.
+  for(const x of [-1.05,1.05]){box(.13,.85,.16,'#242735',x,1.58,-1.1);box(.13,.85,.16,'#242735',x,1.58,1.3);box(.28,.1,2.5,'#303640',x,1.99,.1);}
+  box(1.85,.1,.45,'#303640',0,1.99,-.9);box(1.85,.1,.55,'#303640',0,1.99,1.08);
+  for(const x of [-.55,.55]){box(.65,.75,.55,'#181e24',x,1.1,-.45);box(.65,.7,.25,'#181e24',x,1.35,.75);}
+  for(const x of [-1.28,1.28]){box(.25,.16,.35,'#26333c',x,1.6,-.8);box(.05,.045,.3,'#a5a9aa',x,1.12,.35);}
+  const windshield=box(2.05,.6,.03,'#7998a4',0,1.64,-1.12);windshield.material.transparent=true;windshield.material.opacity=.32;
   box(2.05,.6,.03,'#49636c',0,1.64,1.32);
   const windowMeshes=[];
-  for (const x of [-1.12,1.12]) windowMeshes.push(box(.025,.55,1.9,'#4e626c',x,1.65,.05));
+  for (const x of [-1.12,1.12]) {const glass=box(.025,.55,1.9,'#71929d',x,1.65,.05);glass.material.transparent=true;glass.material.opacity=.24;windowMeshes.push(glass);}
   box(2.3,.1,.12,'#b2b6b3',0,.65,-2.4);
   for (const x of [-.85,.85]) {
     box(.5,.18,.07,'#ffe0ae',x,1,-2.43);

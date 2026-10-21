@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { posture } from './cover.js';
 import { WEAPONS, needsReload } from './combat.js';
 
 const angleDelta=(a,b)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
@@ -85,11 +86,7 @@ export function updateCompanions(game,dt) {
     const nearCover=game.colliders.some(box=>box.max.y>.8&&box.max.y<1.4&&box.distanceToPoint(pos)<2.5);
     p.crouched=game.level===2&&!moving&&nearCover;
     p.peek=Boolean(p.crouched&&nearest&&!hurt&&p.cooldown<=0&&p.draw<=0&&p.reloading<=0);
-    p.body.scale.y=THREE.MathUtils.damp(p.body.scale.y,p.crouched?.65:1,18,dt);
-    p.body.position.x=THREE.MathUtils.damp(p.body.position.x,0,18,dt);
-    p.body.position.y=THREE.MathUtils.damp(p.body.position.y,p.crouched?p.peek?.32:-.25:0,18,dt);
-    p.body.rotation.x=THREE.MathUtils.damp(p.body.rotation.x,0,12,dt);
-    p.legs.forEach((leg,i)=>{leg.rotation.x=p.crouched?.45:moving?Math.sin(game.elapsed*8+i*Math.PI)*.4:0;});
+    posture(p,dt,{crouched:p.crouched,peek:p.peek,moving,time:game.elapsed});
     p.recoil=THREE.MathUtils.damp(p.recoil,0,7,dt);
     if(!nearest || hurt || pos.distanceTo(nearest.group.position)>19 || p.cooldown>0 || p.draw>0 || p.reloading>0)continue;
     const from=pos.clone().add(new THREE.Vector3(0,1.5,0));

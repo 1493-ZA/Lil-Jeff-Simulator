@@ -2,18 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readCharges, awardCharge, narrationDuration, XP_REWARDS } from '../src/progression.js';
 
-test('kill and task XP fills a character meter once, with no overflow',()=>{
+test('street cred accumulates beyond 100 and announces its first milestone once',()=>{
   const p={xp:0};
   for(let i=0;i<3;i++)assert.equal(awardCharge(p,XP_REWARDS.kill),false);
   assert.equal(p.xp,60);
   assert.equal(awardCharge(p,XP_REWARDS.combat),true);
   assert.equal(p.xp,100);
   assert.equal(awardCharge(p,20),false);
-  assert.equal(p.xp,100);
+  assert.equal(p.xp,120);
 });
 
 test('saved charges tolerate malformed, unavailable, and out-of-range storage',()=>{
-  assert.deepEqual(readCharges({getItem:()=>'[40,200,-10]'}),[40,100,0]);
+  assert.deepEqual(readCharges({getItem:()=>'[40,200,-10]'}),[40,200,0]);
   assert.deepEqual(readCharges({getItem:()=>'{broken'}),[0,0,0]);
   assert.deepEqual(readCharges({getItem:()=>{throw Error('disabled')}}),[0,0,0]);
   assert.deepEqual(readCharges({getItem:()=>'[null,"20",5.6]'}),[0,0,5]);

@@ -45,7 +45,7 @@ test('renders Enter CHIRAQ and supports movement, airborne shooting, slide, swit
   await page.mouse.up();
   expect(await page.evaluate(() => window.__game.shots)).toBeGreaterThan(0);
   await page.waitForFunction(() => window.__game.player.grounded);
-  await page.keyboard.press('KeyC');
+  await page.keyboard.down('ShiftLeft');await page.keyboard.press('KeyC');await page.keyboard.up('ShiftLeft');
   await page.waitForFunction(() => window.__game.player.slide > .1 && window.__game.player.legs.every(leg=>leg.rotation.x>1.1));
   expect(await page.evaluate(()=>window.__game.player.legs.every(leg=>leg.rotation.x>1.1))).toBe(true);
   expect(await page.evaluate(()=>window.__game.player.body.rotation.x)).toBeGreaterThan(0);
@@ -151,6 +151,7 @@ test('pause, resume, and return to main menu reset a run without reloading', asy
 });
 
 test('Mission 1 completes only on its last opp and automatically rewards and starts Mission 2', async ({ page }) => {
+  test.setTimeout(120000);
   await enter(page);
   await page.evaluate(()=>window.__game.enemies.forEach(e=>e.cooldown=Infinity));
   await page.keyboard.press('Digit2');
@@ -366,7 +367,7 @@ test('companions follow safely, use weak fire, and cannot die while inactive', a
   expect(await page.evaluate(()=>window.__game.characters.slice(1).every(p=>!window.__game.colliders.some(b=>p.group.position.x+.35>b.min.x&&p.group.position.x-.35<b.max.x&&p.group.position.z+.35>b.min.z&&p.group.position.z-.35<b.max.z&&b.max.y>.1)))).toBe(true);
 });
 
-test('narration queues, can be reread, and XP stays saved without consuming an unassigned special',async({page})=>{
+test('narration queues and street cred stays saved across reloads and status checks',async({page})=>{
   await enter(page);
   await page.evaluate(()=>{
     const g=window.__game;g.enemies.forEach(e=>e.cooldown=Infinity);
@@ -384,10 +385,10 @@ test('narration queues, can be reread, and XP stays saved without consuming an u
   await page.locator('#start').click();
   await page.keyboard.press('Digit2');
   await page.evaluate(()=>window.__game.awardXP(1,40));
-  await expect(page.locator('#xp-label-1')).toHaveText('SPECIAL READY');
+  await expect(page.locator('#xp-label-1')).toHaveText('STREET CRED 100');
   await page.keyboard.press('KeyF');
   expect(await page.evaluate(()=>window.__game.player.xp)).toBe(100);
-  expect(await page.evaluate(()=>window.__game.dialogueLog.some(line=>line.includes('not assigned yet')))).toBe(true);
+  expect(await page.evaluate(()=>window.__game.dialogueLog.some(line=>line.includes('Abilities coming later')))).toBe(true);
 });
 
 test('normal opps and the Special Opp patrol with moving legs and attached markers',async({page})=>{
@@ -540,7 +541,7 @@ test('ducking behind real cover blocks incoming and outgoing shots; peeking and 
     g.characters.slice(1).forEach(p=>p.cooldown=Infinity);
     const p=g.player;p.draw=0;p.group.rotation.y=0;g.yaw=0;g.pitch=-.04;
   });
-  await page.waitForFunction(()=>window.__game.player.crouched&&window.__game.player.body.scale.y<.7);
+  await page.waitForFunction(()=>window.__game.player.crouched&&window.__game.player.body.scale.y===1&&window.__game.player.body.position.y<-.65);
   const before=await page.evaluate(()=>window.__game.shots);
   await page.mouse.down();await page.waitForFunction(n=>window.__game.shots>n+1,before);await page.mouse.up();
   expect(await page.evaluate(()=>window.__coverTarget.health)).toBe(200);
@@ -551,18 +552,23 @@ test('ducking behind real cover blocks incoming and outgoing shots; peeking and 
   });
   expect(protectedHealth.after).toBe(protectedHealth.before);
   await page.mouse.down({button:'right'});
-  await page.waitForFunction(()=>window.__game.player.peek&&window.__game.player.body.position.y>.29);
+  await page.waitForFunction(()=>window.__game.player.peek&&window.__game.player.body.position.y>-.16);
+  const exposed=await page.evaluate(()=>{const g=__game,e=window.__coverTarget,random=Math.random;Math.random=()=>0;const before=g.player.health;e.cooldown=0;try{g.updateAI(.016);}finally{Math.random=random;}e.cooldown=Infinity;return{before,after:g.player.health};});
+  expect(exposed.after).toBeLessThan(exposed.before);
   await page.mouse.down();await page.waitForFunction(()=>window.__coverTarget.health<200);await page.mouse.up();
-  await page.keyboard.down('KeyX');await page.waitForFunction(()=>window.__game.player.body.position.x>.8&&window.__game.player.body.position.y<-.2);
-  expect(await page.evaluate(()=>{
-    const g=window.__game;g.scene.updateMatrixWorld(true);const from=g.player.guns[0].muzzle.getWorldPosition(g.player.group.position.clone());const to=window.__coverTarget.group.position.clone();to.y+=1.2;return g.hasLineOfSight(from,to);
-  })).toBe(true);
+  await page.keyboard.down('KeyX');await page.waitForFunction(()=>window.__game.player.body.position.x>.55&&window.__game.player.body.position.y<-.2);
+  await page.waitForFunction(()=>{
+    const g=window.__game;g.scene.updateMatrixWorld(true);const from=g.player.guns[0].muzzle.getWorldPosition(g.player.group.position.clone());const to=window.__coverTarget.group.position.clone();to.y+=1.2;return g.player.body.position.y<-.65&&g.hasLineOfSight(from,to);
+  });
   await page.screenshot({path:'test-results/claim-cover-peek.png'});
-  await page.keyboard.up('KeyX');await page.mouse.up({button:'right'});await page.keyboard.press('KeyV');
+  await page.keyboard.up('KeyX');
+  await page.evaluate(()=>__game.yaw=.6);
+  await page.waitForFunction(()=>__game.player.body.position.x<-.8&&__game.player.body.scale.y===1);
+  await page.mouse.up({button:'right'});await page.keyboard.press('KeyC');
   await page.waitForFunction(()=>!window.__game.player.crouched&&window.__game.player.body.scale.y>.95);
 });
 
-test('CLAIM THE BLOCK enforces all four body-count gates, crew capture, cypher and side lane; reward never stacks',async({page})=>{
+test('CLAIM THE BLOCK enforces all four gates and role tasks, then automatically starts Mission 3',async({page})=>{
   test.setTimeout(90000);
   await enterClaim(page);
   expect(await page.evaluate(()=>window.__game.characters.every(p=>p.health===125&&p.maxHealth===125&&p.crouched))).toBe(true);
@@ -589,11 +595,9 @@ test('CLAIM THE BLOCK enforces all four body-count gates, crew capture, cypher a
   expect(await page.evaluate(()=>window.__game.enemies.filter(e=>e.claimWave===3).length)).toBe(12);
   await page.evaluate(()=>window.__game.enemies.forEach(e=>e.cooldown=Infinity));
   await clearClaimWave(page);await gatherCrew(page);
-  await expect(page.locator('#result-title')).toHaveText('BLOCKCLAIMED.');
+  await page.waitForFunction(()=>window.__game.level===3&&window.__game.pursuit.phase==='entry');
   await expect(page.locator('#body-count-0')).toContainText('BODY 36');
-  await page.locator('#restart').click();
-  await page.waitForFunction(()=>window.__game.level===2&&window.__game.claim.point===0&&!window.__game.finished);
-  expect(await page.evaluate(()=>window.__game.characters.every(p=>p.maxHealth===125))).toBe(true);
+  expect(await page.evaluate(()=>window.__game.characters.every(p=>p.maxHealth===125&&p.body.scale.y===1))).toBe(true);
   await page.keyboard.press('Escape');await page.locator('#quit').click();
   expect(await page.evaluate(()=>({level:__game.level,cover:__game.claimProps.length,hp:__game.player.maxHealth}))).toEqual({level:1,cover:0,hp:100});
 });

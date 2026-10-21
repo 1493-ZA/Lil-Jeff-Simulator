@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { posture } from './cover.js';
+import { beginPursuit } from './pursuit.js';
 import { createLoadout, ROSTER } from './combat.js';
 
 export const CLAIM_POINTS = [
@@ -53,9 +55,10 @@ export function spawnClaimWave(game) {
     const x=[-6,-2,2,6][i%4],z=point.z-1-Math.floor(i/4)*3;
     const enemy=game.spawnEnemy(x,z);enemy.claimWave=game.claim.point;
     enemy.health=80+(game.claim.point*5);enemy.cooldown=1.8+i*.12;
+    if(game.claim.point===2&&i===0){enemy.alias='Switchback';enemy.special=true;enemy.health=140;enemy.badge=game.label('SWITCHBACK','#ffae79',3,x,3,z);}
     if(game.claim.point===3&&i===point.quota-1){
-      enemy.special=true;enemy.health=180;enemy.group.userData.torso.material.color.set('#7b3f3c');
-      enemy.badge=game.label('BLOCK CAPTAIN','#ffae79',3,x,3,z);
+      enemy.special=true;enemy.alias='Vex';enemy.health=180;enemy.group.userData.torso.material.color.set('#7b3f3c');
+      enemy.badge=game.label('VEX / BLOCK CAPTAIN','#ffae79',3,x,3,z);
     }
   }
 }
@@ -71,10 +74,10 @@ export function beginClaimBlock(game,retry=false) {
     p.maxHealth=125;p.health=125;p.kills=game.missionOneKills?.[i]||0;
     p.loadout=createLoadout(ROSTER[i].primary);p.slot=0;p.guns=p.weaponRigs[0];
     p.group.visible=true;p.group.position.set((i-1)*4,0,14.4);p.group.rotation.set(0,0,0);
-    p.body.position.set(0,-.25,0);p.body.rotation.set(0,0,0);p.body.scale.set(1,.65,1);
+    p.body.position.set(0,-.25,0);p.body.rotation.set(0,0,0);p.body.scale.set(1,1,1);
     p.legs.forEach(leg=>{leg.visible=true;leg.rotation.x=.45;});
     if(p.leftArm)p.leftArm.rotation.x=0;
-    p.crouched=true;p.peek=false;p.slide=0;p.velocityY=0;p.grounded=true;p.reloading=0;p.cooldown=0;p.draw=.5;p.recoil=0;
+    p.crouched=true;p.peek=false;p.coverBox=null;posture(p,1);p.slide=0;p.velocityY=0;p.grounded=true;p.reloading=0;p.cooldown=0;p.draw=.5;p.recoil=0;
     p.coverAnchor=p.group.position.clone();p.aiGoal=null;p.aiPlanCooldown=0;p.lastHitAt=-Infinity;
   });
   game.terminals.forEach(t=>{t.ring.visible=t.marker.visible=false;});
@@ -84,7 +87,7 @@ export function beginClaimBlock(game,retry=false) {
   game.finished=false;game.running=true;game.started=true;
   spawnClaimWave(game);
   game.narrationQueue=[];game.toastTime=0;
-  game.toast(retry?'CLAIM THE BLOCK. Crew back in cover. Let’s run it again.':'MISSION 1 CLEAR. +25 MAX HEALTH for the whole crew. CLAIM THE BLOCK starts now. V to duck, aim to peek.');
+  game.toast(retry?'CLAIM THE BLOCK. Crew back in cover. Let’s run it again.':'MISSION 1 CLEAR. +25 MAX HEALTH for the whole crew. CLAIM THE BLOCK starts now. Ammo refilled. C to duck, aim to peek.');
   game.updateCamera(1);game.updateHUD();
   if(game.audio){game.music.setDucked(false);game.music.start(game.audio);}
 }
@@ -105,7 +108,7 @@ export function updateClaimBlock(game) {
   }
   if(clear&&together&&roleDone) {
     game.characters.forEach(p=>game.awardXP(p.index,15));
-    if(game.claim.point===CLAIM_POINTS.length-1){game.claim.complete=true;game.finish(true);return;}
+    if(game.claim.point===CLAIM_POINTS.length-1){game.claim.complete=true;beginPursuit(game);return;}
     game.claim.point++;game.characters.forEach(p=>{p.coverAnchor=null;p.aiGoal=null;p.aiPlanCooldown=0;});
     spawnClaimWave(game);game.toast(`Checkpoint clear. ${CLAIM_POINTS[game.claim.point].name}. Keep the crew together.`);
   }

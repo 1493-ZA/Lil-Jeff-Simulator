@@ -9,13 +9,13 @@ export function buildNeighborhood(game) {
   game.scene.background = new THREE.Color('#555c72');
   addSky(game);
   game.scene.fog = new THREE.FogExp2('#555c72', .008);
-  game.scene.add(new THREE.HemisphereLight('#a8b9df', '#483a36', 2.4));
-  const sun = new THREE.DirectionalLight('#ffbd8b', 2.6);
+  game.scene.add(new THREE.HemisphereLight('#a8b9df', '#38312f', 1.1));
+  const sun = new THREE.DirectionalLight('#ffcfaa', 3.2);
   sun.position.set(-35, 40, 12);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024,1024);
+  sun.shadow.mapSize.set(2048,2048);
   Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 60, bottom: -60, far: 160 });
-  sun.shadow.bias = -.0007;
+  sun.shadow.bias = -.00025;sun.shadow.normalBias=.025;sun.shadow.radius=3;
   sun.target.position.set(0,0,-26);
   game.scene.add(sun, sun.target);
   const batches = new Map();
@@ -32,12 +32,14 @@ export function buildNeighborhood(game) {
   for(let row=0;row<8;row++) for(let col=-1;col<8;col++) {
     ctx.fillStyle=['#9b5946','#9f604b','#8d4f40','#aa6950'][(row*7+col+8)%4];
     ctx.fillRect(col*40+(row%2)*20,row*16+1,38,14);
+    for(let k=0;k<18;k++){ctx.fillStyle=k%2?'#392e282c':'#e7c5a220';ctx.fillRect(col*40+(row%2)*20+(k*17%37),row*16+2+(k*5%12),2,1);}
   }
   const brickTexture=new THREE.CanvasTexture(brickCanvas);
   brickTexture.colorSpace=THREE.SRGBColorSpace;
   brickTexture.wrapS=brickTexture.wrapT=THREE.RepeatWrapping;
   brickTexture.repeat.set(2,2);
-  const brick=game.material('#d0b6a4',{map:brickTexture});
+  const bump=brickTexture.clone();bump.colorSpace=THREE.NoColorSpace;
+  const brick=game.material('#ad9388',{map:brickTexture,bumpMap:bump,bumpScale:.065,roughness:.96});
   box(58,.5,108,'#asphalt',0,-.26,-28,false,streetMaterial());
   box(6,.16,106,'#92918b',-12,.02,-28);
   box(6,.16,106,'#92918b',12,.02,-28);
@@ -49,6 +51,7 @@ export function buildNeighborhood(game) {
     box(5.6,.018,.055,'#797e81',-12,.115,z);
     box(5.6,.018,.055,'#797e81',12,.115,z);
   }
+  for(const [x,z] of [[3,4],[-4,-19],[2,-40],[-2,-65]]){const puddle=new THREE.Mesh(new THREE.CircleGeometry(1,32),game.material('#35414a',{roughness:.14,metalness:.45,transparent:true,opacity:.6}));puddle.rotation.x=-Math.PI/2;puddle.scale.set(1.7,.7,1);puddle.position.set(x,.021,z);game.scene.add(puddle);}
   // Crosswalk, resurfaced asphalt, stoops and narrow residential lots.
   for(let x=-7.5;x<8;x+=1.7) for(const z of [-17,-66]) box(.9,.02,3.4,'#c2bca9',x,.015,z);
   [[-3,3,2,3],[5,-22,2.5,4],[-4,-46,3,5]].forEach(([x,z,w,d])=>box(w,.015,d,'#303844',x,.015,z));

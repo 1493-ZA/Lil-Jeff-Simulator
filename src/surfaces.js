@@ -17,7 +17,7 @@ export function streetMaterial() {
   const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;
   map.wrapS=map.wrapT=THREE.RepeatWrapping;map.repeat.set(4,12);map.anisotropy=4;
   const bump=map.clone();bump.colorSpace=THREE.NoColorSpace;
-  return new THREE.MeshStandardMaterial({color:'#a6a8ac',map,bumpMap:bump,bumpScale:.035,roughness:.85,metalness:.08});
+  return new THREE.MeshStandardMaterial({color:'#a6a8ac',map,bumpMap:bump,bumpScale:.035,roughness:.64,metalness:.15});
 }
 
 export function addSky(game) {
@@ -29,4 +29,12 @@ export function addSky(game) {
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
   const sky=new THREE.Mesh(new THREE.SphereGeometry(180,24,16),new THREE.MeshBasicMaterial({map:texture,side:THREE.BackSide,depthWrite:false,fog:false}));
   sky.position.set(0,0,-25);game.scene.add(sky);
+}
+
+let clothMap;
+export function clothingMap(){
+  if(clothMap)return clothMap;
+  const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const ctx=canvas.getContext('2d');
+  let seed=88;for(let y=0;y<128;y++)for(let x=0;x<128;x++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;const v=180+(seed%45)+(x%3===0?15:0)-(y%4===0?12:0);ctx.fillStyle=`rgb(${v},${v},${v})`;ctx.fillRect(x,y,1,1);}
+  clothMap=new THREE.CanvasTexture(canvas);clothMap.wrapS=clothMap.wrapT=THREE.RepeatWrapping;clothMap.repeat.set(3,3);clothMap.colorSpace=THREE.SRGBColorSpace;return clothMap;
 }
