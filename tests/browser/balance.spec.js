@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-async function enter(page){await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.evaluate(()=>__game.renderer.setPixelRatio(.65));await page.locator('#start').click();}
+async function enter(page){await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.evaluate(()=>(__game.nextPuzzleType='circuit',__game.renderer.setPixelRatio(.65)));await page.locator('#start').click();}
 test('actual muzzle impacts apply head, chest, abdomen and leg damage',async({page})=>{
  await enter(page);
  const wounds=await page.evaluate(()=>{
@@ -7,7 +7,7 @@ test('actual muzzle impacts apply head, chest, abdomen and leg damage',async({pa
   const p=g.player;p.group.position.set(-.4,0,3);p.body.position.set(0,0,0);p.body.rotation.set(0,0,0);p.arms.position.set(0,1.5,0);
   const random=Math.random;Math.random=()=>.5;const results=[];
   try{for(const [x,y]of [[0,1.9],[0,1.35],[0,.95],[.17,.45]]){
-    enemy.health=1000;p.recoil=0;p.guns[0].group.rotation.x=0;
+    enemy.health=1000;enemy.body.rotation.set(0,0,0);enemy.hips.rotation.set(0,0,0);enemy.legs.forEach(l=>{l.rotation.set(0,0,0);l.userData.shin.rotation.set(0,0,0);});p.recoil=0;p.guns[0].group.rotation.set(0,0,0);
     for(let n=0;n<10;n++){g.scene.updateMatrixWorld(true);const origin=p.guns[0].muzzle.getWorldPosition(p.group.position.clone()),d=enemy.group.position.clone().add(p.group.position.clone().set(x,y,0)).sub(origin);p.group.rotation.y=Math.atan2(-d.x,-d.z);p.arms.rotation.x=Math.atan2(d.y,Math.hypot(d.x,d.z));}
     g.lastWound=null;g.shoot(p);results.push(g.lastWound&&{location:g.lastWound.location,damage:g.lastWound.damage});
   }}finally{Math.random=random;}return results;

@@ -5,7 +5,7 @@ export const QUALITY={low:{ratio:1,shadow:0,far:100,fx:20},medium:{ratio:1.25,sh
 export function batchStatic(group,recursive=false){
  group.updateWorldMatrix(true,true);const inverse=group.matrixWorld.clone().invert(),batches=new Map();
  const meshes=[];if(recursive)group.traverse(m=>{if(m.isMesh&&m.visible)meshes.push(m);});else meshes.push(...group.children.filter(m=>m.isMesh&&m.visible));
- for(const mesh of meshes){if(mesh.name==='torso')continue;const material=mesh.material,key=[material.color.getHex(),material.roughness,material.metalness].join(':');if(material.map||material.transparent)continue;
+ for(const mesh of meshes){if(mesh.name==='torso')continue;const material=mesh.material,key=[material.type,material.color.getHex(),material.roughness,material.metalness,material.map?.uuid||'',material.bumpMap?.uuid||'',material.bumpScale,material.side].join(':');if(material.transparent)continue;
   if(!batches.has(key))batches.set(key,[]);batches.get(key).push(mesh);
  }
  for(const meshes of batches.values()){

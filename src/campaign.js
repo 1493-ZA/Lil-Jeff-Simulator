@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {disposeProp,updateContact} from './contacts.js';
 import {ALLEY_STOPS,alleyInstruction} from './alley.js';
 import { findCover, posture } from './cover.js';
 import { beginPursuit } from './pursuit.js';
@@ -28,7 +29,7 @@ export function clearEnemies(game) {
 export function clearClaimProps(game) {
   if(!game.claimProps)return;
   game.colliders=game.colliders.filter(box=>!game.claimColliders.includes(box));
-  for(const mesh of game.claimProps){game.scene.remove(mesh);mesh.geometry.dispose();mesh.material.map?.dispose();mesh.material.dispose();}
+  for(const mesh of game.claimProps)disposeProp(mesh);
   game.claimProps=[];game.claimColliders=[];game.claimMarkers=[];
 }
 
@@ -58,7 +59,7 @@ export function spawnClaimWave(game) {
     enemy.health=ENEMY_HEALTH.claimBase+game.claim.point*ENEMY_HEALTH.claimStep;enemy.cooldown=1.8+i*.12;
     if(game.claim.point===2&&i===0){enemy.alias='Switchback';enemy.special=true;enemy.health=ENEMY_HEALTH.switchback;enemy.badge=game.label('SWITCHBACK','#ffae79',3,x,3,z);}
     if(game.claim.point===3&&i===point.quota-1){
-      enemy.special=true;enemy.alias='Vex';enemy.health=ENEMY_HEALTH.vex;enemy.group.userData.torso.material.color.set('#7b3f3c');
+      enemy.special=true;enemy.alias='Vex';enemy.health=ENEMY_HEALTH.vex;enemy.group.userData.torso.material.color.set('#1769ee');
       enemy.badge=game.label('VEX / BLOCK CAPTAIN','#ffae79',3,x,3,z);
     }
   }
@@ -94,6 +95,7 @@ export function beginClaimBlock(game,retry=false) {
 }
 
 export function updateClaimBlock(game) {
+  if(game.alleyClient&&game.alleyClient.group.parent)updateContact(game,game.alleyClient,1/60);
   const point=CLAIM_POINTS[game.claim.point];
   game.claimMarkers.forEach((marker,i)=>{marker.ring.visible=marker.label.visible=i===game.claim.point;marker.label.lookAt(game.camera.position);});
   game.flankMarker.visible=game.claim.point===2&&!game.claim.exitTagged;

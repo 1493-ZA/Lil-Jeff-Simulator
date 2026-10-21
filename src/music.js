@@ -14,7 +14,7 @@ export class DrillMusic {
   setDucked(value) { if(this.ducked!==value){this.ducked=value;this.applyGain();} }
   applyGain() {
     if(!this.context || !this.bus)return;
-    const gain=this.active&&!this.muted&&!this.ducked?this.volume*1.25:0;
+    const gain=this.active&&!this.muted?this.volume*1.25*(this.ducked?.35:1):0;
     this.bus.gain.cancelScheduledValues(this.context.currentTime);
     this.bus.gain.setTargetAtTime(gain,this.context.currentTime,.035);
   }

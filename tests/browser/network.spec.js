@@ -11,10 +11,10 @@ test('two browsers agree on movement, damage, checkpoints and minigames with 160
  await pages[0].evaluate(()=>{const g=__game;g.defeatEnemy(g.enemies[0],0);g.stage=2;g.car.gate=1;});await pages[1].waitForFunction(()=>__game.stage===2&&__game.car.gate===1&&__game.enemies[0].health===0);
  // Guest switches to the unoccupied driver, then performs the actual circuit puzzle.
  await pages[1].keyboard.press('Digit3');await pages[1].waitForFunction(()=>__game.active===2);
- await pages[0].evaluate(()=>{const g=__game;g.characters[2].group.position.set(4,0,-35);g.car.lockState='opened';});await pages[1].waitForFunction(()=>__game.player.group.position.z< -34);
+ await pages[0].evaluate(()=>{const g=__game;g.characters[2].group.position.set(4,0,-35);g.car.lockState='opened';g.nextPuzzleType='circuit';});await pages[1].waitForFunction(()=>__game.player.group.position.z< -34);
  await pages[1].keyboard.press('KeyE');await pages[1].waitForFunction(()=>__game.carWork?.phase==='wire');
  await pages[1].keyboard.press('Escape');await pages[0].waitForFunction(()=>__game.carWork===null);await pages[1].waitForFunction(()=>__game.carWork===null);expect(await pages[0].evaluate(()=>__game.car.lockState)).toBe('opened');
- await pages[1].keyboard.press('KeyE');await pages[1].waitForFunction(()=>__game.carWork?.phase==='wire');
+ await pages[0].evaluate(()=>__game.nextPuzzleType='circuit');await pages[1].keyboard.press('KeyE');await pages[1].waitForFunction(()=>__game.carWork?.phase==='wire');
  const order=await pages[1].evaluate(()=>__game.carWork.order);for(const [i,c]of ['AMBER','CYAN','VIOLET'].entries()){await pages[1].keyboard.press(`Digit${i+1}`);await pages[1].keyboard.press(['KeyJ','KeyK','KeyL'][order.indexOf(c)]);}
  await pages[0].waitForFunction(()=>__game.driving);await pages[1].waitForFunction(()=>__game.driving&&__game.car.lockState==='ready');
  await pages[0].evaluate(async()=>{const {beginClaimBlock}=await import('/src/campaign.js');beginClaimBlock(__game);});await pages[1].waitForFunction(()=>__game.level===2&&__game.claim.point===0&&__game.enemies.length===6);

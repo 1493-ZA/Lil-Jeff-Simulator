@@ -1,0 +1,6 @@
+// Original lightweight HUD illustrations, matching the crew's model hair/colors.
+export function crewPortrait(index){
+ const skin=index===1?'#ad8061':'#956347';
+ const locs=index===1?'':Array.from({length:12},(_,n)=>{const x=n<6?9+n*1.6:47+(n-6)*1.6;const bottom=39+n%3*4;return `<path d="M${x} 17 Q${x-3} 29 ${x-2} ${bottom}" stroke="#17171c" stroke-width="4" stroke-linecap="round"/>${index===2?`<path d="M${x-2} ${bottom-5} L${x-2} ${bottom}" stroke="#ac84c7" stroke-width="3" stroke-linecap="round"/>`:''}`;}).join('');
+ return `<svg viewBox="0 0 64 80" aria-hidden="true"><path d="M0 80L4 66Q10 59 24 58L25 49H39L40 58Q55 59 60 67L64 80" fill="${['#30363b','#36544e','#403849'][index]}"/><path d="M25 48H39V60Q32 65 25 60Z" fill="${skin}"/><path d="M15 26Q13 12 32 11Q51 12 49 27L47 44Q42 56 32 58Q22 55 17 44Z" fill="${skin}"/><path d="M16 25L16 18Q20 8 32 9Q45 8 49 18L49 27L44 21L21 21Z" fill="#14151a"/><path d="M20 32L27 31M37 31L44 32" stroke="#35271f" stroke-width="2.3"/><path d="M21 35L26 35M38 35L43 35" stroke="#e8d9c8" stroke-width="2"/><path d="M24 34V36M40 34V36" stroke="#1d2227" stroke-width="2"/><path d="M32 35L29 43L34 44M25 49Q32 51 39 48" fill="none" stroke="#66412f" stroke-width="1.4"/>${locs}<path d="M21 61L32 68L43 61M32 68V80" fill="none" stroke="#81918c" stroke-width="1"/></svg>`;
+}

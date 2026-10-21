@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-async function enter(page){await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.evaluate(()=>__game.renderer.setPixelRatio(.65));await page.locator('#start').click();}
+async function enter(page){await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.evaluate(()=>(__game.nextPuzzleType='circuit',__game.renderer.setPixelRatio(.65)));await page.locator('#start').click();}
 test('crosshair convergence stays accurate on foot and through the sunroof; muzzle cover still blocks',async({page})=>{
  await enter(page);const result=await page.evaluate(async()=>{
   const {aimPoint,alignWeapon,shotSpread}=await import('/src/handling.js');const {WEAPONS}=await import('/src/combat.js');const g=__game;g.running=false;g.enemies.forEach(e=>e.health=0);const p=g.player;

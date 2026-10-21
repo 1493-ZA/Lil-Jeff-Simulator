@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {buildDistrict} from './district.js';
 import { OBJECTIVES, DRIVE_ROUTE } from './mission.js';
 import { buildCar } from './models.js';
 import { streetMaterial, addSky } from './surfaces.js';
@@ -138,6 +139,7 @@ export function buildNeighborhood(game) {
     label.visible=false;
     return {ring,label};
   });
+  buildDistrict(game,brick);
   const dummy=new THREE.Object3D();
   const geometry=new THREE.BoxGeometry(1,1,1);
   for(const {material,items} of batches.values()) {

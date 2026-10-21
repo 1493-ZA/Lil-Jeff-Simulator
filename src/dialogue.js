@@ -1,6 +1,7 @@
 export const SPECIAL_NAMES=['Static','Switchback','Vex'];
-export const KILL_LINES=[['He’s down. Watch the alley.','I got him. Check the right side.','Keep moving. I’ll cover you.'],['He’s down. You both good?','Watch that corner. Stay sharp.','I got you. Stay behind me.'],['Clear on my side. Let’s move.','Stay close. Don’t get caught out.','Watch behind us. I got the front.']];
-export const TAUNTS=['I see you behind that car!','Draco! You ain’t walking out of here!','Get around them! Don’t let them through!','Stay on them! Don’t let them leave!','They’re on the corner! Push up!'];
+export const KILL_LINES=[['That lane’s clear. Stay locked in.','On bro, watch the right.','Keep slidin. I got this corner.'],['You both good? Don’t get caught out.','Shorty was tweakin. Watch the alley.','Whole crew valid. Keep it moving.'],['Clear road. Come on, folks.','Stay close. I’m bringing us through.','Back lane’s open. We can spin out.']];
+export const TAUNTS=['You can’t hide behind that ride!','Draco, you still outside?','Go round the side. They’re boxed in!','You trippin if you think this lane’s clear!','They’re at the corner. Stay locked in!'];
+export const STREET_BARS=[['Locked in, streetlights paint the lane.','Crew kept pace, put respect on the name.','No cap, whole block hear the refrain.'],['Doom in the pocket, I don’t chase the beat.','Foenem by the corner, let the bass line breathe.','New page, same crew, got the whole block with me.'],['Z took the turn, kept the whole crew steady.','Night run finished, got the next verse ready.','One more spin, hear the kick drum heavy.']];
 const base=(import.meta.env?.BASE_URL||'/')+'audio/';
 export class CrewVoices{
   constructor(game){this.game=game;this.buffers=new Map();this.playing=new Set();this.next=0;}

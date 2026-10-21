@@ -1,7 +1,7 @@
 import {solveCircuit} from './helpers.js';
 import {test,expect} from '@playwright/test';
 async function enterPursuit(page){
- await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.evaluate(()=>__game.renderer.setPixelRatio(.65));await page.locator('#start').click();
+ await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.evaluate(()=>(__game.nextPuzzleType='circuit',__game.renderer.setPixelRatio(.65)));await page.locator('#start').click();
  await page.evaluate(()=>{const g=window.__game;g.defeatedNames=[{name:'Static',killer:0},{name:'Switchback',killer:1},{name:'Vex',killer:2}];g.level=3;g.reset();});
 }
 async function startCar(page){
@@ -81,7 +81,7 @@ test('studio shares one beat, all three change flows, on-fire boosts cred and on
 });
 test('locally bundled combat voices decode and music defaults are louder with a compressed output',async({page})=>{
  const errors=[];page.on('response',r=>{if(r.url().includes('/audio/')&&r.status()>=400)errors.push(r.url());});
- await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.evaluate(()=>__game.renderer.setPixelRatio(.65));await page.locator('#start').click();
+ await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.evaluate(()=>(__game.nextPuzzleType='circuit',__game.renderer.setPixelRatio(.65)));await page.locator('#start').click();
  expect(await page.evaluate(()=>__game.music.volume)).toBeGreaterThan(.6);
  await page.waitForFunction(()=>__game.music.samples.size===6);
  await page.evaluate(async()=>{await __game.voices.say('taunt-0','Opp: I see you behind that car!',3,{force:true});});

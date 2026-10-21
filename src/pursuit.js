@@ -24,13 +24,14 @@ export function beginPursuit(game,retry=false){
   clearEnemies(game);clearClaimProps(game);clearPursuit(game);
   game.firstCar=game.car;game.firstCar.group.visible=false;
   game.chaseCar=buildCar(game,[0,0,-62]);game.car=game.chaseCar;game.car.group.name='sunroof escape coupe';
+  game.terminals.forEach(t=>t.ring.visible=t.marker.visible=false);game.routeMarkers.forEach(t=>t.ring.visible=t.label.visible=false);
   game.car.group.children.filter(m=>m.isMesh&&m.position.y<1.3&&m.position.y>.7).forEach(m=>m.material.color.set('#454c52'));
   game.level=3;game.stage=0;game.active=2;game.driving=game.gunner=game.aiming=game.shooting=false;game.carWork=null;game.rap=null;
   game.pursuit={phase:'entry',cops:[],spawned:0,disabled:0,route:0,time:0,completed:[false,false,false],credEarned:0,turn:0};
   game.characters.forEach((p,i)=>{p.kills=game.missionTwoKills?.[i]||0;p.health=p.maxHealth;p.group.visible=true;p.group.position.set((i-1)*2,0,-58);p.body.scale.set(1,1,1);p.body.position.set(0,0,0);p.body.rotation.set(0,0,0);p.crouched=p.peek=false;p.arms.position.set(0,1.5,0);p.coverBox=null;p.coverAnchor=null;p.aiGoal=null;p.aiWaypoint=null;p.slide=0;p.velocityY=0;p.grounded=true;p.loadout=createLoadout(ROSTER[i].primary);p.slot=0;p.guns=p.weaponRigs[0];p.draw=.5;p.reloading=0;p.cooldown=0;p.legs.forEach(l=>{l.visible=true;l.rotation.x=0;if(l.userData.shin)l.userData.shin.rotation.x=0;});});
   game.keys.clear();game.yaw=0;game.pitch=-.08;game.finished=false;game.started=game.running=true;
   ['#result','#pause-menu','#rap-panel','#drive-panel','#car-work-panel'].forEach(s=>$(s).classList.add('hidden'));$('#hud').classList.remove('hidden');
-  game.narrationQueue=[];game.toastTime=0;game.toast('MISSION 03 / BLUE LIGHTS. Z78: New ride. Hold E to break in, then connect the color circuit to get us moving.');
+  game.narrationQueue=[];game.toastTime=0;game.toast('MISSION 03 / BLUE LIGHTS. Z78: New ride. Hold E to break in, then solve the signal puzzle to get us moving.');
   game.music.setScene('chase');game.updateCamera(1);game.updateHUD();
 }
 export function launchChase(game){
@@ -58,7 +59,7 @@ export function policeRayHit(game,origin,direction,maxDistance,damage){
   const hits=raycaster.intersectObjects(game.pursuit.cops.filter(c=>!c.disabled).flatMap(c=>c.parts),false);
   if(!hits.length)return null;
   const hit=hits[0],part=hit.object.userData.police;part.health-=damage;
-  if(part.health<=0){part.car.disabled=true;game.pursuit.disabled++;hit.object.material.color.set('#222222');game.awardXP(0,25);game.voices.say('kill-0-1','Draco: I got him. Check the right side.',0);}
+  if(part.health<=0){part.car.disabled=true;game.pursuit.disabled++;hit.object.material.color.set('#222222');game.awardXP(0,25);game.voices.say('kill-0-1','Draco: On bro, watch the right.',0);}
   return hit;
 }
 function steerTo(game,target,dt,speed=8){
@@ -147,7 +148,7 @@ export function updatePursuit(game,dt){
 }
 export function unlockFreeRoam(game){
   game.pursuit.phase='free';game.narrationQueue=[];game.toastTime=0;game.rap=null;game.voices.stop();$('#rap-panel').classList.add('hidden');game.active=0;game.yaw=0;game.pitch=-.08;
-  game.characters.forEach((p,i)=>{p.group.position.set((i-1)*2,0,-22);p.group.rotation.y=0;p.body.position.set(0,0,0);p.arms.rotation.x=0;p.body.rotation.z=0;p.leftArm.rotation.x=0;p.weaponRigs[p.slot].forEach(g=>g.group.visible=true);});
+  game.characters.forEach((p,i)=>{p.group.position.set((i-1)*2,0,-18);p.group.rotation.y=0;p.body.position.set(0,0,0);p.arms.rotation.x=0;p.body.rotation.z=0;p.leftArm.rotation.x=0;p.weaponRigs[p.slot].forEach(g=>g.group.visible=true);});
   beginStreet(game);game.studioProps.visible=false;game.keys.clear();game.music.setScene('street');game.toast('MISSION 03 CLEAR / STREET CRED EARNED. Free roam unlocked. The block is yours—walk around and switch the crew.');
 }
 export function pursuitHUD(game){
@@ -155,7 +156,7 @@ export function pursuitHUD(game){
   $('#level-title').textContent=s.phase==='free'?'FREE ROAM':'BLUE LIGHTS / RED RECORD';$('#chapter-label').textContent=s.phase==='free'?'FREE ROAM':'MISSION 03';
   const titles={entry:'NEW RIDE. SAME CREW.',chase:'SHAKE THE BLUE LIGHTS',toStudio:'AFTER HOURS STUDIO',studio:'PUT THE NIGHT ON WAX',free:'THE BLOCK IS YOURS'};
   $('#objective-title').textContent=titles[s.phase];$('#mission-step').textContent=s.phase==='free'?'OPEN MAP':'03 / 03';
-  $('#objective-description').textContent={entry:'Switch to Z78 → New sunroof car → Hold E to break in, then press E for the circuit puzzle.',chase:'Draco · Aim from the sunroof. Disable tires or drivers. Z78 handles the wheel.',toStudio:'Pursuit cleared. Z78 is taking the crew to the studio.',studio:'J / K / L on beat. Each member needs 6/8 and the session needs 180 street cred.',free:'Explore on foot. 1 / 2 / 3 switches the crew. Esc returns to the menu.'}[s.phase];
+  $('#objective-description').textContent={entry:'Switch to Z78 → New sunroof car → Hold E to break in, then solve the signal puzzle.',chase:'Draco · Aim from the sunroof. Disable tires or drivers. Z78 handles the wheel.',toStudio:'Pursuit cleared. Z78 is taking the crew to the studio.',studio:'J / K / L on beat. Each member needs 6/8 and the session needs 180 street cred.',free:'Explore on foot. 1 / 2 / 3 switches the crew. Esc returns to the menu.'}[s.phase];
   $('#objective-count').textContent=s.phase==='studio'?`SESSION CRED ${s.credEarned}/${STUDIO_THRESHOLD} · VERSES ${s.completed.filter(Boolean).length}/3`:`PURSUIT CARS ${s.disabled}/${PURSUIT_TOTAL}`;
   $('#objective-progress').style.width=`${s.phase==='studio'?Math.min(100,s.credEarned/STUDIO_THRESHOLD*100):s.disabled/PURSUIT_TOTAL*100}%`;
   $('#enemy-remaining').textContent=s.phase==='free'?'FREE ROAM UNLOCKED':s.phase==='studio'?'ONE BEAT · THREE VOICES':`POLICE CARS LEFT ${PURSUIT_TOTAL-s.disabled}`;

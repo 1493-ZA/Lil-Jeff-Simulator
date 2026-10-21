@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {animateLocomotion} from './animation.js';
 import { safeFooting } from './companions.js';
 
 export function moveEnemy(game,enemy,dt) {
@@ -12,7 +13,7 @@ export function moveEnemy(game,enemy,dt) {
     if(!game.driving && enemy.special && pos.distanceTo(target)<18 && pos.distanceTo(target)>9) {
       goal=target.clone().add(pos.clone().sub(target).setY(0).normalize().multiplyScalar(7));
     }
-    goal.x=THREE.MathUtils.clamp(goal.x,-8,8);goal.y=0;
+    goal.x=THREE.MathUtils.clamp(goal.x,game.street?-23:-8,game.street?75:8);goal.y=0;
     if(safeFooting(game,goal))enemy.moveGoal=goal;
     enemy.moveTimer=1.2;
   }
@@ -26,6 +27,5 @@ export function moveEnemy(game,enemy,dt) {
       game.moveWithCollision(enemy,step);moving=true;break;
     }
   }
-  enemy.legs.forEach((leg,i)=>leg.rotation.x=moving?Math.sin(game.elapsed*8+i*Math.PI)*.42:THREE.MathUtils.damp(leg.rotation.x,0,10,dt));
-  enemy.body.position.y=moving?Math.sin(game.elapsed*16)*.012:0;
+  animateLocomotion(enemy,dt,{aiming:true});
 }

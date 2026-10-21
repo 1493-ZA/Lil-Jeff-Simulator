@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 
 async function enter(page) {
   await page.goto('/?test=1&quality=low');
-  await page.waitForFunction(() => !!window.__game);await page.evaluate(()=>__game.renderer.setPixelRatio(.65));
+  await page.waitForFunction(() => !!window.__game);await page.evaluate(()=>(__game.nextPuzzleType='circuit',__game.renderer.setPixelRatio(.65)));
   await page.locator('#start').click();
   await page.waitForFunction(() => window.__game.running);
 }
@@ -28,7 +28,7 @@ test('renders Enter CHIRAQ and supports movement, airborne shooting, slide, swit
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/?test=1&quality=low');
   await expect(page.locator('h1').first()).toContainText('CHIRAQ');
-  await page.waitForFunction(() => !!window.__game);await page.evaluate(()=>__game.renderer.setPixelRatio(.65));
+  await page.waitForFunction(() => !!window.__game);await page.evaluate(()=>(__game.nextPuzzleType='circuit',__game.renderer.setPixelRatio(.65)));
   await page.screenshot({ path: 'test-results/chiraq-menu.png' });
   await page.locator('#start').click();
   // Isolate controls from combat randomness; actual combat is exercised below.
@@ -594,9 +594,11 @@ test('CLAIM THE BLOCK enforces all four gates and role tasks, then automatically
   await page.keyboard.press('Digit3');
   for(const [x,z]of [[12,-40],[12,-46]]){await page.evaluate(([x,z])=>__game.player.group.position.set(x,0,z),[x,z]);await page.keyboard.press('KeyE');}
   expect(await page.evaluate(()=>__game.claim.exitTagged)).toBe(false);
-  await page.evaluate(()=>{const g=__game;g.claim.alley.guards.forEach(e=>g.defeatEnemy(e,0));g.player.group.position.set(6,0,-44);});await page.keyboard.press('KeyE');
+  await page.evaluate(()=>{const g=__game;g.claim.alley.guards.forEach(e=>g.defeatEnemy(e,0));g.player.group.position.set(30,0,-47);});await page.keyboard.press('KeyE');
   expect(await page.evaluate(()=>window.__game.claim.exitTagged)).toBe(true);
-  await page.keyboard.down('KeyW');await page.waitForFunction(()=>window.__game.player.group.position.z< -46.2);await page.keyboard.up('KeyW');
+  // Walk back through the building gap from the deeper client, rather than
+  // expecting the old near-street handoff position to be inside the capture zone.
+  await page.keyboard.down('KeyA');await page.waitForFunction(()=>window.__game.player.group.position.x<7);await page.keyboard.up('KeyA');
   await page.waitForFunction(()=>window.__game.claim.point===3);
   expect(await page.evaluate(()=>window.__game.enemies.filter(e=>e.claimWave===3).length)).toBe(12);
   await page.evaluate(()=>window.__game.enemies.forEach(e=>e.cooldown=Infinity));

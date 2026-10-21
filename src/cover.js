@@ -14,8 +14,8 @@ export function posture(p,dt,{crouched=p.crouched,peek=p.peek,lean=0,armsShift=0
   p.body.position.x=THREE.MathUtils.damp(p.body.position.x,lean,18,dt);
   p.body.rotation.x=THREE.MathUtils.damp(p.body.rotation.x,sliding?.16:crouched?.1:0,16,dt);
   p.legs.forEach((leg,i)=>{
-    leg.rotation.x=sliding?1.35:crouched?-.95:moving?Math.sin(time*9+i*Math.PI)*.45:0;
-    if(leg.userData.shin)leg.userData.shin.rotation.x=crouched?1.55:0;
+    leg.rotation.x=THREE.MathUtils.damp(leg.rotation.x,sliding?1.35:crouched?-.95:leg.rotation.x,14,dt);
+    if(leg.userData.shin)leg.userData.shin.rotation.x=THREE.MathUtils.damp(leg.userData.shin.rotation.x,crouched?1.55:0,14,dt);
   });
 }
 export function updateCover(game,p,dt,moving){

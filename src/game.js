@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ROSTER, WEAPONS, createLoadout, fireRound, reload, needsReload } from './combat.js';
 import { buildNeighborhood } from './neighborhood.js';
+import { animateLocomotion,acceleratedStep } from './animation.js';
 import { buildHair, buildWeapon } from './models.js';
 import { OBJECTIVES, RAP_PATTERN, RAP_LINES, BEAT_SECONDS, RAP_PASS, DRIVE_ROUTE, combatTarget, combatComplete, beatTime, createRap, judgeRap, advanceCar } from './mission.js';
 
@@ -23,7 +24,8 @@ import {setQuality,batchStatic} from './quality.js';
 import {streetInteract,clearStreet} from './street.js';
 import {alleyInteract,alleyInstruction} from './alley.js';
 import { ActionInput } from './input.js';
-import { createCircuit,circuitInput,renderCircuit } from './hotwire.js';
+import { createBypass,circuitInput,renderCircuit,resetEntryPose } from './hotwire.js';
+import {updateNavigation} from './navigation.js';
 import { aimPoint, alignWeapon, shotSpread, updateHandling } from './handling.js';
 
 const $ = selector => document.querySelector(selector);
@@ -53,7 +55,7 @@ export class Game {
     this.keys = new Set();
     this.colliders = [];
     this.enemies = [];
-    this.effects = [];
+    this.effects = [];this.effectPool=[];
     this.characters = [];
     this.active = 0;
     this.yaw = 0;
@@ -100,7 +102,7 @@ export class Game {
     this.renderer.setAnimationLoop(() => this.tick());
   }
 
-  material(color, extra = {}) { const cloth=['#3c4043','#354d49','#353342','#303a43','#3c444c'].includes(color);return new THREE.MeshStandardMaterial({ color, roughness: cloth?.94:.72,...(cloth?{map:clothingMap(),bumpMap:clothingMap(),bumpScale:.025}:{}), ...extra }); }
+  material(color, extra = {}) { const cloth=['#3c4043','#354d49','#353342','#303a43','#3c444c','#1559de','#2349bd','#0867e4','#244b9f','#1b62e6','#173f96','#2156cb','#1248b5','#2869e8','#183b87'].includes(color);return new THREE.MeshStandardMaterial({ color, roughness: cloth?.94:.72,...(cloth?{map:clothingMap(),bumpMap:clothingMap(),bumpScale:.025}:{}), ...extra }); }
 
   box(width, height, depth, color, x, y, z, { solid = false, parent = this.scene, ...extra } = {}) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), this.material(color, extra));
@@ -145,25 +147,41 @@ export class Game {
   buildPerson(color, enemy = false, identity = -1) {
     const group = new THREE.Group(), body = new THREE.Group();
     group.add(body);
-    const variant=Math.abs(identity)%6;
-    const cloth=enemy?['#3c444c','#303e4d','#425361','#36475c','#3a454f','#354b59'][variant]:identity===0?'#3c4043':identity===1?'#354d49':'#353342';
-    const skin=enemy?['#886a58','#634637','#b08a6a','#78513e','#98725c','#553e33'][variant]:identity===1?'#9b765b':'#79513d';
+    const variant=Math.abs(identity)%10;
+    const cloth=enemy?['#1559de','#2349bd','#0867e4','#244b9f','#1b62e6','#173f96','#2156cb','#1248b5','#2869e8','#183b87'][variant]:identity===0?'#3c4043':identity===1?'#354d49':'#353342';
+    const skin=enemy?['#886a58','#634637','#b08a6a','#78513e','#98725c','#553e33'][variant%6]:identity===1?'#9b765b':'#79513d';
     const round=(x,y,z,sx,sy,sz,tint,parent=body)=>{
       const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),this.material(tint));
       mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);mesh.castShadow=true;parent.add(mesh);return mesh;
     };
-    const torso=new THREE.Mesh(new THREE.CylinderGeometry(.28,.25,.72,20),this.material(cloth));
-    torso.name='torso';torso.scale.x=enemy?[1,.91,1.08,.96,1.04,.94][variant]:1;torso.scale.z=.72;torso.position.y=1.23;torso.castShadow=true;body.add(torso);
-    round(0,.8,.02,.29,.17,.2,'#30363d');
-    round(0,1.57,.08,.25,.15,.2,cloth);
+    const torso=new THREE.Mesh(new THREE.LatheGeometry([[.22,-.35],[.235,-.2],[.275,.1],[.295,.24],[.18,.35]].map(([r,y])=>new THREE.Vector2(r,y)),20),this.material(cloth));
+    torso.name='torso';torso.scale.x=enemy?[1,.91,1.08,.96,1.04,.94][variant%6]:1;torso.scale.z=.72;torso.position.y=1.23;torso.castShadow=true;body.add(torso);
+    round(0,.8,.02,.25,.13,.18,'#30363d');
+    round(0,1.50,.065,.22,.095,.17,cloth);
     this.box(.016,.56,.025,'#a29887',0,1.22,-.225,{parent:body});
+    for(const side of [-1,1]){
+      this.box(.09,.04,.15,'#24282e',side*.10,1.57,-.14,{parent:body}).rotation.z=side*.4;
+      this.box(.10,.12,.025,enemy?'#307aff':'#292f33',side*.14,1.10,-.205,{parent:body});
+      round(side*.27,1.49,0,.095,.115,.14,cloth);
+    }
+    if(enemy&&variant>=6){const hood=round(0,1.65,.09,.21,.20,.14,cloth);hood.name='layered hood';}
+    if(enemy&&variant%3===1){const brim=this.box(.25,.025,.14,'#267bff',0,2.035,-.16,{parent:body});brim.rotation.x=.08;}
     this.cylinder(.085,.18,skin,0,1.67,0,body);
-    round(0,1.9,0,.16,.15,.18,skin);
-    round(-.165,1.91,0,.035,.05,.03,skin);round(.165,1.91,0,.035,.05,.03,skin);
-    if(identity===1){const cap=round(0,2,.015,.165,.09,.18,'#253b3a');cap.name='fitted doom cap';}
+    // Sculpted skull profile: chin, mandible, cheeks, temples, crown.
+    const profile=[[.055,1.73],[.11,1.76],[.145,1.82],[.155,1.91],[.147,2.01],[.105,2.065],[.025,2.085]];
+    const head=new THREE.Mesh(new THREE.LatheGeometry(profile.map(([r,y])=>new THREE.Vector2(r,y)),20),this.material(skin,{roughness:.82}));
+    head.scale.z=1.12;head.name='sculpted skull and jaw';head.castShadow=true;body.add(head);
+    round(-.102,1.85,-.10,.055,.052,.045,skin);round(.102,1.85,-.10,.055,.052,.045,skin);
+    round(0,1.765,-.077,.083,.033,.064,skin);
+    round(-.158,1.91,0,.024,.043,.021,skin);round(.158,1.91,0,.024,.043,.021,skin);
+    if(!enemy&&identity===1){
+      const fade=round(0,2.015,.012,.15,.065,.163,'#151519');fade.name='doom black fade crown';
+      const hairline=round(0,1.977,.016,.151,.047,.164,'#272326');hairline.name='doom tapered fade';
+      round(0,2.035,.012,.146,.053,.158,'#0e0f12');
+    }
     if(enemy){const hair=round(0,2,.02,.165,.085,.175,['#17191d','#30241f','#111518'][Math.abs(identity)%3]);hair.name='fitted enemy hair';}
     if(enemy){
-      this.box(.32,.055,.025,'#6a92b1',0,1.35,-.215,{parent:body});
+      this.box(.32,.055,.025,'#53a0ff',0,1.35,-.215,{parent:body});
       if(variant===1||variant===4)this.box(.32,.13,.025,'#28323e',0,1.82,-.17,{parent:body});
       if(variant===2||variant===5){const chain=this.cylinder(.12,.025,'#b9a781',0,1.56,-.16,body);chain.rotation.x=.7;}
     }
@@ -173,18 +191,20 @@ export class Game {
         round(x,1.95,-.176,.009,.012,.008,'#242325');
         this.box(.065,.018,.02,'#372d28',x,1.993,-.18,{parent:body});
       }
-      round(0,1.89,-.205,.04,.048,.04,skin);
+      round(0,1.91,-.175,.022,.046,.025,skin);round(0,1.88,-.203,.027,.020,.026,skin);
       this.box(.1,.012,.015,'#604337',0,1.81,-.183,{parent:body});
     }
+    const hips=new THREE.Group();body.add(hips);
     const legs=[-.17,.17].map(x=>{
-      const pivot=new THREE.Group();pivot.position.set(x,.85,0);body.add(pivot);
+      const pivot=new THREE.Group();pivot.position.set(x,.85,0);hips.add(pivot);
       const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.11,.19,6,12),this.material('#303a43'));
       leg.position.y=-.18;leg.castShadow=true;pivot.add(leg);
       const shin=new THREE.Group();shin.position.y=-.4;pivot.add(shin);pivot.userData.shin=shin;
       const calf=new THREE.Mesh(new THREE.CapsuleGeometry(.095,.16,6,12),this.material('#303a43'));calf.position.y=-.16;calf.castShadow=true;shin.add(calf);
+      round(0,0,0,.102,.102,.102,'#303a43',shin);
       round(0,-.32,-.07,.125,.10,.21,'#202730',shin);
       this.box(.21,.035,.32,'#aba99e',0,-.39,-.07,{parent:shin});
-      return pivot;
+      batchStatic(shin);return pivot;
     });
     const arms=new THREE.Group();arms.position.set(0,1.5,0);body.add(arms);
     let leftArm=null;
@@ -192,13 +212,16 @@ export class Game {
       const limb=new THREE.Group();limb.position.x=x;arms.add(limb);if(x<0)leftArm=limb;
       const sleeve=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.38,4,8),this.material(cloth));
       sleeve.rotation.x=Math.PI/2;sleeve.position.set(0,-.08,-.24);sleeve.castShadow=true;limb.add(sleeve);
-      round(0,-.08,-.53,.085,.08,.10,skin,limb);
+      round(0,-.08,-.53,.068,.065,.09,skin,limb);
+      round(x<0?.045:-.045,-.105,-.57,.028,.038,.053,skin,limb);
+      for(let f=0;f<3;f++)round((f-1)*.027,-.11,-.60,.017,.023,.027,skin,limb);
+      batchStatic(limb,true);
     }
     const guns=[buildWeapon(this,'switch',arms,.4)];
     group.userData.torso=torso;this.scene.add(group);
-    batchStatic(body);const person={group,body,legs,arms,guns,leftArm};
+    batchStatic(body);const person={group,body,hips,legs,arms,guns,leftArm};
     if(!enemy&&(identity===0 || identity===2))person.hair=buildHair(this,person,identity===0?0:1);
-    if(enemy&&(variant===0||variant===3))person.hair=buildHair(this,person,variant===0?0:1);
+    if(enemy&&(variant===0||variant===3||variant===7))person.hair=buildHair(this,person,variant===0?0:1);
     return person;
   }
 
@@ -218,8 +241,8 @@ export class Game {
   }
 
   spawnEnemy(x, z) {
-    const variant=(this.enemySerial=(this.enemySerial||0)+1)%6;
-    const enemy = { ...this.buildPerson('#52636a', true,variant),variant,weaponId:['switch','arp','switch','draco','arp','switch'][variant], health: ENEMY_HEALTH.street, cooldown: 1.5, flashTime: 0, home: new THREE.Vector3(x, 0, z) };
+    const variant=(this.enemySerial=(this.enemySerial||0)+1)%10;
+    const enemy = { ...this.buildPerson('#52636a', true,variant),variant,weaponId:['switch','arp','switch','draco','arp','switch','akimbo','arp','draco','switch'][variant], health: ENEMY_HEALTH.street, cooldown: 1.5, flashTime: 0, home: new THREE.Vector3(x, 0, z) };
     if(enemy.weaponId!=='switch'){const old=enemy.guns[0];old.group.removeFromParent();old.group.traverse(m=>{if(m.isMesh){m.geometry.dispose();m.material.dispose();}});enemy.guns=[buildWeapon(this,enemy.weaponId,enemy.arms,.4)];}
     enemy.group.position.copy(enemy.home);
     enemy.group.traverse(object=>{if(!object.isMesh)return;object.userData.enemy=enemy;let node=object;while(node&&node!==enemy.group){if(node.name.startsWith('weapon-')){object.userData.weaponPart=true;break;}node=node.parent;}});
@@ -233,7 +256,7 @@ export class Game {
       if(i===3) {
         enemy.special=true; enemy.alias='Static';enemy.health=ENEMY_HEALTH.static;
         const badge=this.label('STATIC / SPECIAL OPP','#ffb16f',2.8,x,3,z);enemy.badge=badge;
-        enemy.group.userData.torso.material.color.set('#7b3f3c');
+        enemy.group.userData.torso.material.color.set('#1868ed');
       }
     });
   }
@@ -377,7 +400,7 @@ export class Game {
     this.effects = []; this.enemies = [];
     this.buildCrew(); this.buildEnemies();
     Object.assign(this.car, { speed: 0, yaw: 0, gate: 0, integrity: 100, collisionCooldown: 0 });
-    this.car.lockState='locked';this.car.group.visible=true;this.car.windowMeshes.forEach(mesh=>mesh.visible=true);
+    this.car.lockState='locked';this.car.door.rotation.y=0;this.car.group.visible=true;this.car.windowMeshes.forEach(mesh=>mesh.visible=true);
     this.car.group.position.set(4,0,-38); this.car.group.rotation.set(0,0,0);
     this.routeMarkers.forEach(marker => { marker.ring.visible = marker.label.visible = false; });
     this.terminals.forEach(terminal => { terminal.ring.visible=true;terminal.marker.visible = true; terminal.ring.material.opacity = .4; });
@@ -405,7 +428,7 @@ export class Game {
     this.player.slide = 0;
     this.player.arms.position.x=0;this.player.body.position.set(0,0,0);this.player.body.scale.y=1;this.player.crouched=false;this.player.peek=false;
     this.player.body.rotation.x = 0;
-    this.carWork=null;document.querySelector('#car-work-panel').classList.add('hidden');
+    resetEntryPose(this);this.carWork=null;document.querySelector('#car-work-panel').classList.add('hidden');
     this.player.legs.forEach(leg => { leg.rotation.x = 0; });
     this.active = index;
     this.player.draw = WEAPONS[this.weaponState.id].draw;
@@ -441,7 +464,7 @@ export class Game {
     for (const axis of ['x', 'z']) {
       const old = pos[axis];
       pos[axis] += displacement[axis];
-      pos.x = clamp(pos.x, -25.1, 25.1);
+      pos.x = clamp(pos.x, -25.1, this.street?77:this.level===2?33:25.1);
       pos.z = clamp(pos.z, -80, 21.1);
       const feet = pos.y;
       if (this.colliders.some(box => feet < box.max.y && feet + 1.8 > box.min.y && pos.x + .38 > box.min.x && pos.x - .38 < box.max.x && pos.z + .38 > box.min.z && pos.z - .38 < box.max.z)) pos[axis] = old;
@@ -455,13 +478,15 @@ export class Game {
     if(sprinting){p.crouched=false;p.coverBox=null;}
     const speed = p.crouched?2.1:this.aiming ? 3.3 : sprinting ? 8 : 5.1;
     const sliding = p.slide > 0;
-    this.moveWithCollision(p, (sliding ? p.slideDirection : direction).clone().multiplyScalar((sliding ? 11 * (.5 + p.slide) : speed) * dt));
+    const step=sliding?p.slideDirection.clone().multiplyScalar(11*(.5+p.slide)*dt):acceleratedStep(p,direction,speed,dt);
+    this.moveWithCollision(p,step);
     p.slide = Math.max(0, p.slide - dt);
     this.updateGravity(p, dt);
-    p.group.rotation.y += angleDelta(p.group.rotation.y, this.yaw) * Math.min(1, dt * 9);
+    const bodyYaw=(!this.aiming&&!this.shooting&&direction.lengthSq()>.01)?Math.atan2(-direction.x,-direction.z):this.yaw;
+    p.group.rotation.y += angleDelta(p.group.rotation.y, bodyYaw) * (1-Math.exp(-dt*(this.aiming?14:10)));
     p.recoil = damp(p.recoil, 0, 6, dt);
     p.arms.rotation.x = damp(p.arms.rotation.x, this.pitch + p.recoil - p.body.rotation.x + (p.draw > 0 || p.reloading > 0 ? -.85 : 0), 12, dt);
-    updateCover(this,p,dt,direction.lengthSq()>0);assistAim(this,p,dt);
+    updateCover(this,p,dt,direction.lengthSq()>0);animateLocomotion(p,dt,{aiming:this.aiming,crouched:p.crouched,sliding});assistAim(this,p,dt);
     if (this.shooting && p.draw <= 0 && p.reloading <= 0 && p.cooldown <= 0) this.shoot(p);
   }
 
@@ -517,7 +542,7 @@ export class Game {
     }
     const end = origin.clone().addScaledVector(direction, distance);
     this.tracer(origin, end, ROSTER[character.index].color);
-    gun.flash.visible = true;
+    gun.flash.visible = true;gun.flash.scale.setScalar(.8+Math.random()*.4);
     gun.flashTime = .065;
     character.flashTime = .065;
     gun.recoil = Math.min((gun.recoil || 0) + weapon.kick * .35, .025);
@@ -528,6 +553,8 @@ export class Game {
     if (victim) {
       const location=hitLocation(victim.group.worldToLocal(hits[0].point.clone()).y);
       const damage=woundDamage(weapon.damage,location,clamp(weapon.range/Math.max(1,distance),.4,1),support);
+      for(const sign of [-1,1])this.tracer(end,end.clone().add(new THREE.Vector3(.07*sign,.09,.02)),'#dfc9a5');
+      victim.body.rotation.z+=.045*(Math.random()>.5?1:-1);
       victim.health=Math.max(0,victim.health-damage);
       if(character===this.player)this.lastWound={location,damage,enemy:victim};
       if (character === this.player) { this.hits++; this.hitTime = .14; }
@@ -553,7 +580,8 @@ export class Game {
   tracer(from, to, color) {
     if(this.net?.host)this.net.events.push({from:from.toArray(),to:to.toArray(),color});
     if(this.effects.length>=(this.qualitySettings?.fx||40))return;
-    const mesh = new THREE.Line(new THREE.BufferGeometry().setFromPoints([from, to]), new THREE.LineBasicMaterial({ color, transparent: true, opacity: .85 }));
+    const mesh=this.effectPool.pop()||new THREE.Line(new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3)),new THREE.LineBasicMaterial({transparent:true,opacity:.85}));
+    const positions=mesh.geometry.attributes.position;positions.setXYZ(0,from.x,from.y,from.z);positions.setXYZ(1,to.x,to.y,to.z);positions.needsUpdate=true;mesh.geometry.computeBoundingSphere();mesh.material.color.set(color);mesh.material.opacity=.85;
     this.scene.add(mesh);
     this.effects.push({ mesh, life: .07 });
   }
@@ -624,7 +652,7 @@ export class Game {
     if (this.rap || this.carWork) return;
     if(this.level===3){
       if(this.pursuit.phase==='free'){streetInteract(this);return;}
-      if(this.pursuit.phase==='entry'&&this.active===2&&this.player.group.position.distanceTo(this.car.group.position)<4.5){this.carWork=this.car.lockState==='locked'?{phase:'break',progress:0}:createCircuit();renderCircuit(this);this.shooting=this.aiming=false;$('#car-work-panel').classList.remove('hidden');}
+      if(this.pursuit.phase==='entry'&&this.active===2&&this.player.group.position.distanceTo(this.car.group.position)<4.5){this.carWork=this.car.lockState==='locked'?{phase:'break',progress:0}:createBypass(this);renderCircuit(this);this.shooting=this.aiming=false;$('#car-work-panel').classList.remove('hidden');}
       return;
     }
     if(this.level===2){
@@ -649,15 +677,16 @@ export class Game {
       this.toast('Doom: Watch me catch this pocket.',3.5);
     } else if (this.stage === 2 && distance < 4.5) {
       if(this.car.lockState==='ready'){this.boardCar();return;}
-      this.carWork=this.car.lockState==='locked'?{phase:'break',progress:0}:createCircuit();renderCircuit(this);
+      this.carWork=this.car.lockState==='locked'?{phase:'break',progress:0}:createBypass(this);renderCircuit(this);
       this.shooting=this.aiming=false;$('#car-work-panel').classList.remove('hidden');
     }
   }
 
   boardCar(){
+    this.car.door.rotation.y=0;resetEntryPose(this);
     if(this.level===3){launchChase(this);$('#drive-panel').classList.remove('hidden');return;}
     this.gunner=this.active!==2;
-    this.driving=true;this.shooting=this.aiming=false;this.keys.clear();
+    this.driving=true;this.car.door.rotation.y=0;resetEntryPose(this);this.shooting=this.aiming=false;this.keys.clear();
     this.characters.forEach(p=>{p.arms.position.set(0,1.5,0);p.crouched=false;p.peek=false;p.body.scale.y=1;p.body.position.x=0;});
     $('#drive-panel').classList.remove('hidden');
     this.toast('Z78: Engine’s live. Hop in. 1 Draco, 2 doom, 3 wheel.');
@@ -668,23 +697,32 @@ export class Game {
     const task=this.carWork;
     if(!task)return;
     if(task.phase==='wire'){
-      $('#car-work-panel .work-track').classList.add('hidden');$('#car-work-panel>.eyebrow').textContent='Z78 / CIRCUIT PUZZLE';$('#car-work-panel>small').textContent=`${this.input.label('menu')} CANCEL`;$('#car-work-title').textContent='CONNECT THE COLOR CIRCUIT';$('#wire-puzzle').classList.remove('hidden');
-      if(this.active!==2||this.player.group.position.distanceTo(this.car.group.position)>4.5){this.carWork=null;$('#car-work-panel').classList.add('hidden');return;}
-      if(task.connected.length===3){this.carWork=null;$('#car-work-panel').classList.add('hidden');this.car.lockState='ready';this.awardXP(2,20);this.boardCar();}return;
+      task.timer=(task.timer||0)+dt;
+      this.car.door.rotation.y=damp(this.car.door.rotation.y,.85,10,dt);
+      const seat=new THREE.Vector3(-.8,.1,-.65).applyAxisAngle(UP,this.car.yaw).add(this.car.group.position);
+      this.player.group.position.lerp(seat,1-Math.exp(-dt*7));this.player.group.rotation.y=this.car.yaw;this.player.legs.forEach(l=>l.visible=false);this.player.arms.rotation.x=-.65;
+      if(task.type&&task.type!=='circuit'&&task.timer>(task.lastRender||-1)+.05){renderCircuit(this);task.lastRender=task.timer;}
+      $('#car-work-panel .work-track').classList.add('hidden');$('#car-work-panel>.eyebrow').textContent='Z78 / SIGNAL BYPASS';$('#car-work-panel>small').textContent=`${this.input.label('menu')} CANCEL`;$('#car-work-title').textContent=task.type==='sequence'?'REPEAT THE PULSES':task.type==='timing'?'LOCK THE SIGNAL':'CONNECT THE COLOR CIRCUIT';$('#wire-puzzle').classList.remove('hidden');
+      if(this.active!==2||this.player.group.position.distanceTo(this.car.group.position)>4.5){resetEntryPose(this);this.carWork=null;$('#car-work-panel').classList.add('hidden');return;}
+      if(task.connected.length>=3){this.carWork=null;$('#car-work-panel').classList.add('hidden');this.car.lockState='ready';this.awardXP(2,20);this.boardCar();}return;
     }
     $('#car-work-panel .work-track').classList.remove('hidden');$('#car-work-panel>.eyebrow').textContent=`Z78 / HOLD ${this.input.label('interact')}`;$('#car-work-panel>small').textContent=`KEEP HOLDING ${this.input.label('interact')} · RELEASE TO CANCEL`;$('#wire-puzzle').classList.add('hidden');
     if(this.active!==2||!this.keys.has('KeyE')||this.player.group.position.distanceTo(this.car.group.position)>4.5){
-      this.carWork=null;$('#car-work-panel').classList.add('hidden');return;
+      resetEntryPose(this);this.carWork=null;$('#car-work-panel').classList.add('hidden');return;
     }
     const duration=task.phase==='break'?1.6:3;
     task.progress+=dt;
+    const reach=new THREE.Vector3(-1.8,0,-.5).applyAxisAngle(UP,this.car.yaw).add(this.car.group.position);
+    this.player.group.position.lerp(reach,1-Math.exp(-dt*10));this.player.group.rotation.y=this.car.yaw-Math.PI/2;
+    this.player.arms.rotation.x=-.15+Math.sin(task.progress*17)*.12;this.player.leftArm.rotation.x=-.3;this.player.body.rotation.x=.12;
+    this.car.door.rotation.y=damp(this.car.door.rotation.y,task.progress>.8?.95:0,10,dt);
     $('#car-work-title').textContent=task.phase==='break'?'BREAK INTO THE CAR':'HOTWIRE THE ENGINE';
     $('#car-work-progress').style.width=`${Math.min(1,task.progress/duration)*100}%`;
     if(task.progress>=duration){
       this.carWork=null;$('#car-work-panel').classList.add('hidden');
       if(task.phase==='break'){
         this.car.lockState='opened';this.car.windowMeshes[0].visible=false;this.awardXP(2,10);
-        this.toast(`Z78: I’m in. Press ${this.input.label('interact')} to connect the circuit.`);
+        this.player.body.rotation.x=0;this.carWork=createBypass(this);renderCircuit(this);$('#car-work-panel').classList.remove('hidden');this.toast('Z78: Door’s open. Give me a second with this signal.');
       }else{this.car.lockState='ready';this.awardXP(2,20);this.boardCar();}
     }
   }
@@ -746,14 +784,16 @@ export class Game {
     };
     const remoteDriver=this.net.host&&[...this.net.peers.entries()].find(([id])=>(this.net.assignments[id]??id)===2)?.[1];
     if(remoteDriver&&performance.now()-remoteDriver.received<500){const keys=new Set(remoteDriver.keys||[]);input={forward:keys.has('KeyW'),backward:keys.has('KeyS'),left:keys.has('KeyA'),right:keys.has('KeyD'),brake:keys.has('Space')};}
-    const manualDriver=remoteDriver&&(input.forward||input.backward||input.left||input.right);
-    if(this.gunner && !manualDriver && car.gate<DRIVE_ROUTE.length) {
+    const remoteFresh=remoteDriver&&performance.now()-remoteDriver.received<500;
+    const manualDriver=remoteFresh&&(input.forward||input.backward||input.left||input.right);
+    car.driverIndex=2;car.driverMode=this.active===car.driverIndex||manualDriver?'PLAYER':'AI';
+    if(car.driverMode==='AI' && car.gate<DRIVE_ROUTE.length) {
       const gate=DRIVE_ROUTE[car.gate];
       const desired=Math.atan2(-(gate[0]-car.group.position.x),-(gate[1]-car.group.position.z));
       const turn=angleDelta(car.yaw,desired);
       input={forward:car.speed<4.5,left:turn>.06,right:turn<-.06,brake:Math.abs(turn)>.6 && car.speed>3};
     }
-    if(car.gate===DRIVE_ROUTE.length&&this.gunner)input={brake:true};
+    if(car.gate===DRIVE_ROUTE.length&&car.driverMode==='AI')input={brake:true};
     const movement=advanceCar(car,input,dt);
     const old=car.group.position.clone();
     car.group.position.x+=movement.x;car.group.position.z+=movement.z;
@@ -889,7 +929,7 @@ export class Game {
     $('#result-title').innerHTML = success ? this.level===2?'BLOCK<br>CLAIMED.':'CREW<br>EXTRACTED.' : 'NO ONE<br>LEFT BEHIND.';
     const minutes = Math.floor(this.elapsed / 60);
     const seconds = String(Math.floor(this.elapsed % 60)).padStart(2, '0');
-    $('#result-detail').textContent = success&&this.level===2 ? `CLAIM THE BLOCK complete. Four checkpoints cleared. ${this.characters.map((p,i)=>`${ROSTER[i].name}: ${p.kills}`).join(' · ')} total bodies.` : success ? `Enter CHIRAQ complete. ${minutes}:${seconds} · Draco: ${this.characters[0].kills} takedowns · doom: ${this.rapScore || 0}/8 beats · Z78: 3/3 route markers · Ambush: ${this.driveByKills}/2. The crew rides out together.` : this.car.integrity <= 0 ? 'The getaway car is wrecked. Brake for corners and avoid parked cars.' : 'The escape needs all three characters alive. Use cover, keep moving, and switch before a crew member gets overwhelmed.';
+    $('#result-detail').textContent = success&&this.level===2 ? `CLAIM THE BLOCK complete. Four checkpoints cleared. ${this.characters.map((p,i)=>`${ROSTER[i].name}: ${p.kills}`).join(' · ')} total bodies.` : success ? `Enter CHIRAQ complete. ${minutes}:${seconds} · Draco: ${this.characters[0].kills} takedowns · doom: ${this.rapScore || 0}/8 beats · Z78: 3/3 route markers · Ambush: ${this.driveByKills}/3. The crew rides out together.` : this.car.integrity <= 0 ? 'The getaway car is wrecked. Brake for corners and avoid parked cars.' : 'The escape needs all three characters alive. Use cover, keep moving, and switch before a crew member gets overwhelmed.';
   }
 
   awardXP(index,amount) {
@@ -951,6 +991,8 @@ export class Game {
   }
 
   updateHUD() {
+    updateNavigation(this);
+    const low=this.player.health/this.player.maxHealth<.3;document.querySelector('#low-health').classList.toggle('hidden',!low);document.querySelector('#damage-flash').classList.toggle('critical',low);
     const state = this.weaponState;
     const weapon = this.weapon;
     $('#ammo').textContent = state.rounds.join(' + ');
@@ -959,7 +1001,7 @@ export class Game {
     $('#weapon-name').textContent = weapon.name;
     $('#weapon-status').textContent = this.player.reloading > 0 ? `RELOADING · ${this.player.reloading.toFixed(1)}s` : this.player.draw > 0 ? `DRAWING · ${this.player.draw.toFixed(1)}s` : `${this.player.slot === 0 ? 'PRIMARY' : 'SIDEARM'} / FULL AUTO`;
     document.querySelectorAll('.squad-card').forEach((card, i) => {
-      card.classList.toggle('selected', i === this.active);
+      card.classList.toggle('selected', i === this.active);card.style.order=i===this.active?-1:i;card.classList.toggle('low-health',this.characters[i].health/this.characters[i].maxHealth<.3);
       card.querySelector('.active-label').textContent = i===this.active?'ACTIVE':this.driving?i===2?'DRIVING':'RIDING':this.characters[i].aiState;
       $(`#body-count-${i}`).textContent=`BODY ${this.characters[i].kills}`;
       $(`#hp-label-${i}`).textContent=`HP ${Math.ceil(this.characters[i].health)}/${this.characters[i].maxHealth}`;
@@ -979,7 +1021,7 @@ export class Game {
     $('#level-title').textContent=this.level===2?'CLAIM THE BLOCK':'ENTER CHIRAQ';
     $('#stance-status').textContent=this.driving||this.rap?'':this.player.crouched?'IN COVER · RMB PEEK · BACK / C LEAVE':this.player.coverBox?'BEHIND COVER · C DUCK · RMB PEEK':'C CROUCH · SHIFT + C SLIDE · RMB ASSIST';
     $('#objective-progress').style.width = `${Math.min(1,progress)*100}%`;
-    $('#objective-count').textContent = this.stage === 0 ? `DRACO ${this.characters[0].kills}/${target} · OR SPECIAL OPP ${this.characters[0].specialKills>0?'DOWN':'MARKED'}` : this.stage === 1 ? `HIT ${RAP_PASS} OF 8 BEATS · J / K / L` : `ROUTE ${this.car.gate}/3 · AMBUSH ${this.driveByKills}/2`;
+    $('#objective-count').textContent = this.stage === 0 ? `DRACO ${this.characters[0].kills}/${target} · OR SPECIAL OPP ${this.characters[0].specialKills>0?'DOWN':'MARKED'}` : this.stage === 1 ? `HIT ${RAP_PASS} OF 8 BEATS · J / K / L` : `ROUTE ${this.car.gate}/3 · AMBUSH ${this.driveByKills}/3`;
     if(this.level===1&&this.stage===2){
       const alive=this.enemies.filter(e=>e.health>0).sort((a,b)=>a.group.position.distanceToSquared(this.player.group.position)-b.group.position.distanceToSquared(this.player.group.position));
       $('#objective-count').textContent=this.car.lockState!=='ready'?`CAR ${this.car.lockState==='locked'?'LOCKED · HOLD E TO BREAK IN':'OPEN · HOLD E TO HOTWIRE'}`:`OPPS LEFT ${alive.length}${alive[0]?` · NEAREST ${Math.round(alive[0].group.position.distanceTo(this.player.group.position))}m`:''}`;
@@ -1039,7 +1081,7 @@ export class Game {
     const dt = Math.min((now - this.lastFrame) / 1000, .25);
     this.lastFrame = now;
     this.input.poll(dt);this.net.poll(dt);
-    if(this.net.guest){this.net.render(dt);this.updateEffects(dt);this.renderer.render(this.scene,this.camera);return;}
+    if(this.net.guest){this.net.render(dt);this.updateEffects(dt);if(this.sky)this.sky.position.copy(this.camera.position);this.renderer.render(this.scene,this.camera);return;}
     if (this.running) {
       // Fixed-size physics steps keep movement and fire rate consistent at low FPS.
       let remaining = dt;
@@ -1085,10 +1127,12 @@ export class Game {
       this.hitTime = Math.max(0, this.hitTime - dt);
       this.damageTime = Math.max(0, this.damageTime - dt);
       this.updateCamera(dt);
-      if(!this.rap&&!this.carWork)alignWeapon(this,this.player,aimPoint(this));
-      this.updateHUD();rapPresentation(this,dt);
+      if(!this.rap&&!this.carWork&&(this.driving||this.aiming||this.shooting))alignWeapon(this,this.player,aimPoint(this));
+      this.updateHUD();rapPresentation(this,dt);if(this.carWork)this.player.weaponRigs.flat().forEach(g=>g.group.visible=false);
     }
     this.updateEffects(dt);
+    if(this.sky)this.sky.position.copy(this.camera.position);
+    for(const p of [...this.characters,...this.enemies,...(this.street?.contacts||[])])if(p.hair)p.hair.visible=this.camera.position.distanceTo(p.group.position)<(this.quality==='low'?30:this.quality==='medium'?50:90);
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -1097,8 +1141,7 @@ export class Game {
       this.effects[i].life -= dt;
       if (this.effects[i].life <= 0) {
         this.scene.remove(this.effects[i].mesh);
-        this.effects[i].mesh.geometry.dispose();
-        this.effects[i].mesh.material.dispose();
+        if(this.effectPool.length<70)this.effectPool.push(this.effects[i].mesh);else{this.effects[i].mesh.geometry.dispose();this.effects[i].mesh.material.dispose();}
         this.effects.splice(i, 1);
       }
     }

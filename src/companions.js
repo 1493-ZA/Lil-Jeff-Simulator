@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {animateLocomotion} from './animation.js';
 import {alignWeapon} from './handling.js';
 import { posture } from './cover.js';
 import { WEAPONS, needsReload } from './combat.js';
@@ -28,7 +29,7 @@ function companionWaypoint(game,pos,goal) {
   return corners[0]||goal;
 }
 export function safeFooting(game, point, radius=.4) {
-  return Math.abs(point.x)<24.5 && point.z>-79 && point.z<20 && !game.colliders.some(box=>
+  return point.x>-24.5 && point.x<(game.street?76:game.level===2?32.5:24.5) && point.z>-79 && point.z<20 && !game.colliders.some(box=>
     box.max.y>point.y+.05 && box.min.y<point.y+1.8 && point.x+radius>box.min.x && point.x-radius<box.max.x && point.z+radius>box.min.z && point.z-radius<box.max.z);
 }
 
@@ -111,6 +112,7 @@ export function updateCompanions(game,dt) {
     p.crouched=game.level===2&&!moving&&nearCover&&hurt;
     p.peek=Boolean(nearCover&&!moving&&nearest&&!hurt&&p.cooldown<=0&&p.draw<=0&&p.reloading<=0);
     posture(p,dt,{crouched:p.crouched,peek:p.peek,moving,time:game.elapsed});
+    animateLocomotion(p,dt,{aiming:!!nearest,crouched:p.crouched});
     p.recoil=THREE.MathUtils.damp(p.recoil,0,7,dt);
     if(!nearest || hurt || pos.distanceTo(nearest.group.position)>19)continue;
     const from=pos.clone().add(new THREE.Vector3(0,p.body.position.y+p.arms.position.y,0));

@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 test('camera crosshair tracking disables all moving pursuit waves with bounded ammo and normal recoil',async({page})=>{
- test.setTimeout(90000);await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.evaluate(()=>__game.renderer.setPixelRatio(.65));await page.locator('#start').click();
+ test.setTimeout(90000);await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.evaluate(()=>(__game.nextPuzzleType='circuit',__game.renderer.setPixelRatio(.65)));await page.locator('#start').click();
  await page.evaluate(async()=>{const {beginPursuit,launchChase}=await import('/src/pursuit.js');const g=__game;beginPursuit(g);g.car.lockState='ready';launchChase(g);g.player.draw=0;g.aiming=true;g.aimSession={character:0,start:-100,target:null};g.renderer.setPixelRatio(.65);});
  const run=await page.evaluate(()=>new Promise((resolve,reject)=>{const g=__game,start=performance.now();const track=()=>{
   if(g.pursuit.disabled===6){g.shooting=false;resolve({shots:g.shots,hits:g.hits,disabled:g.pursuit.disabled,integrity:g.car.integrity});return;}

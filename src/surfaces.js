@@ -27,8 +27,8 @@ export function addSky(game) {
   gradient.addColorStop(0,'#18233a');gradient.addColorStop(.45,'#576579');gradient.addColorStop(.6,'#be8a79');gradient.addColorStop(.75,'#7d7777');gradient.addColorStop(1,'#3b414d');
   ctx.fillStyle=gradient;ctx.fillRect(0,0,16,256);
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
-  const sky=new THREE.Mesh(new THREE.SphereGeometry(180,24,16),new THREE.MeshBasicMaterial({map:texture,side:THREE.BackSide,depthWrite:false,fog:false}));
-  sky.position.set(0,0,-25);game.scene.add(sky);
+  const sky=new THREE.Mesh(new THREE.SphereGeometry(80,24,16),new THREE.MeshBasicMaterial({map:texture,side:THREE.BackSide,depthWrite:false,fog:false}));
+  sky.position.set(0,0,-25);game.sky=sky;game.scene.add(sky);
 }
 
 let clothMap;

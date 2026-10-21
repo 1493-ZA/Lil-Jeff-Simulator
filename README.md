@@ -1,6 +1,6 @@
 # Lil Jeff Simulator
 
-A third-person browser prototype with King Draco, Lil doom, and Z78. Three connected missions take place on a fictional Chicago-inspired block, ending in repeatable free-roam activities. Play the hosted build at https://1493-ZA.github.io/Lil-Jeff-Simulator/ after the GitHub Pages deployment finishes.
+A third-person browser prototype with King Draco, Lil doom, and Z78. Three connected missions take place across a fictional Chicago-inspired neighborhood, ending in repeatable free-roam activities. Play the hosted build at https://1493-ZA.github.io/Lil-Jeff-Simulator/ after the GitHub Pages deployment finishes.
 
 ## Run locally
 
@@ -29,7 +29,7 @@ Open the address Vite prints and click **Enter CHIRAQ**. Use a desktop browser w
 | Right mouse in cover | Automatically peek over or around the face you aim toward |
 | 1 / 2 / 3 | Draco / doom / Z78 (sunroof chase fixes control to Draco) |
 | Q / R | Swap weapon / reload |
-| E | Interact; hold for break-in, then solve the color circuit |
+| E | Interact; hold for break-in, then solve a short abstract signal puzzle |
 | J / K / L | Perform the displayed rap notes |
 | WASD in Mission 1’s car | Drive / steer while Z78 is selected |
 | Space / E in Mission 1’s car | Brake / exit |
@@ -46,7 +46,13 @@ Inactive crew follow, commit to corner waypoints to avoid getting stuck, seek as
 
 ### Mission 1 — ENTER CHIRAQ
 
-Draco needs three takedowns or the named **Static / Special Opp**. Doom then performs a 6-of-8-note sidewalk verse. Z78 holds E for 1.6 seconds to break into the marked sedan, releases, then presses E to open a fictional color circuit puzzle. Select a left node with 1/2/3 and its matching right node with J/K/L, or click the nodes. Connect all three; wrong pairs flash red and do not advance progress. Escape cancels without starting the car. Controller: D-pad up/down selects the left node, left/right selects the right node, X selects and A connects. The endpoint order varies between attempts. Both vehicles use this puzzle.
+Draco needs three takedowns or the named **Static / Special Opp**. Doom then performs a 6-of-8-note sidewalk verse. Z78 holds E for 1.6 seconds to break into the marked sedan. He reaches toward the door, opens it and moves into the cabin. A short abstract puzzle starts automatically. Escape cancels without starting the engine. Puzzle types rotate randomly without immediate repeats:
+
+- **Circuit match:** 1/2/3 selects a left color; J/K/L chooses its matching right color. Click controls are also available.
+- **Pulse sequence:** watch the three-color sequence, then repeat using 1/2/3 or J/K/L. A wrong input resets the sequence.
+- **Signal timing:** press Space in the green zone on three separate pulse cycles. A miss resets the locks.
+
+Controller: D-pad chooses nodes/pulses, X selects/submits and A connects or locks timing. Both cars use the same pool. These are fictional game puzzles, not real vehicle procedures.
 
 Drive through the route to trigger the ambush. In the car, Z78 drives automatically whenever he is not selected; Draco and doom provide weak autonomous fire when inactive. The driver can shoot one pistol while steering. Vehicle impacts also count as takedowns.
 
@@ -62,7 +68,7 @@ The crew starts standing behind taller barricades, with the same character dimen
 | --- | --- | --- |
 | TAKE THE CORNER | 6 | Gather the crew |
 | CORNER CYPHER | 8 | Doom performs another 6-of-8 verse |
-| SPIN THE SIDE LANE | 10, including **Switchback** | Z78 inspects an alley package, meets a second contact, clears two ambushers, and returns the package to the purple marker |
+| SPIN THE SIDE LANE | 10, including **Switchback** | Z78 collects a sealed case, clears two ambushers and meets Moss behind the flats through the east-side passage |
 | CLAIM THE BLOCK | 12, including **Vex / Block Captain** | Gather the crew |
 
 Each checkpoint grants all three 15 street cred. The last capture automatically starts Mission 3. Run It Back retries the current mission without stacking health rewards.
@@ -75,7 +81,15 @@ Disable **six police cars in three pairs** by shooting a tire or the driver. The
 
 When the final car is disabled, Z78 takes the crew to After Hours Studio. All three perform original lines over **one continuous 148 BPM beat**, taking turns: Draco’s straight pocket, doom’s syncopation, Z78’s triplet switch. The beat has programmed drops. Defeated fictional special-opponent names are recorded during combat and referenced in the studio lyrics. No real artist lyrics or recordings are used.
 
-Press J/K/L when the notes meet the line. Each performer needs at least **6/8** in a verse, and the session needs **180 earned street cred**. Previously saved cred cannot bypass the studio. Unfinished performers repeat in rotation. Once both conditions are met, Mission 3 ends and the crew returns to the block in **free roam**. Green markers offer a repeatable rap challenge, rival fight, two-leg alley delivery, and Cinder priority-target encounter with an escape leg. Activities reward saved money, Street Cred, health and reserve ammo. Completed activities reopen after 45 seconds. Mission 4 requires 5,000 total crew Street Cred and deliberate interaction at the southern marker; its story is not implemented yet and never starts automatically.
+Press J/K/L when the notes meet the line. Each performer needs at least **6/8** in a verse, and the session needs **180 earned street cred**. Previously saved cred cannot bypass the studio. Unfinished performers repeat in rotation. Once both conditions are met, Mission 3 ends and the crew returns to the block in **free roam**. The minimap and neutral category markers show repeatable activities. Doom’s cypher and Z78’s courier jobs have character-colored accents; general combat activities can use anyone. Completed activities disappear immediately, reopen after 45 seconds, and reward saved money, Street Cred, health and reserve ammo. Mission 4 requires 5,000 total crew Street Cred and deliberate interaction at the southern marker; its story is not implemented yet and never starts automatically.
+
+### Free-roam neighborhood
+
+**Home Block** contains the mic, Relay’s supplier job, friendly locals and the studio entrance. A narrow connecting passage at z=-31 leads through **Commerce Row** to **East Yard**, the rival block with armed patrols and a priority-target encounter. Behind-building alleys contain dumpsters, utility cabinets, loading cover, fire escapes, back doors, lighting and fictional artwork. Couriers visit actual client NPCs with idle poses, spoken lines and short exchange gestures.
+
+Relay rotates three abstract sealed-package jobs: Amber Case (one high-value drop with armed rivals), Violet Parcels (three cross-neighborhood handoffs), and Cyan Envelope (one short, quiet delivery). No real substances or distribution procedures are modeled. Priority Cinder changes to an explicit escape phase after combat, with a world arrow, distance, minimap destination and transition notice. Follow the arrow back to Commerce Row.
+
+The minimap is north-up, showing real building footprints, streets, crew, activity icons and the Mission 4 location. Destinations outside its radius remain at the map edge. Required-character indicators float above the appropriate crew member and clamp to the screen edge; they disappear on switching. Active-character health has a larger lower-left card, illustrated portrait, heart icon, health value and low-health warning. The three existing playable characters remain the roster.
 
 ## Combat balance and hit locations
 
@@ -97,7 +111,7 @@ The instrumental is an original, locally synthesized Chicago drill-inspired arra
 
 All voices are **synthetic placeholders**, not recordings, impressions, or voice clones of the referenced musicians. The bundled Ogg clips work without a browser speech service. Regeneration instructions, original text and Flite notices are in `public/audio/` and `scripts/generate-voices.py`. Professional voice performances and a produced music soundtrack remain future production work.
 
-Visual improvements include environment reflections, warmer directional lighting, softer shadows, textured fabric and masonry, asphalt grain and cracks, wet patches, rounded car panels, transparent windows, cabin interiors, sunroof framing, more adult head/neck proportions, finer loc strands, neutral textured clothing, higher-resolution body meshes, and articulated legs. Draco retains shoulder-length locs, Z78 retains his distinct tied locs, and doom retains his hair. Art remains procedural prototype geometry.
+Visual improvements include environment reflections, warmer directional lighting, softer shadows, textured fabric and masonry, asphalt grain and cracks, wet patches, rounded car panels, transparent windows, cabin interiors, sunroof framing, more adult head/neck proportions, finer loc strands, neutral textured clothing, higher-resolution body meshes, and articulated legs. Draco retains shoulder-length locs, Z78 retains his distinct tied locs, and doom has a black tapered fade. Art remains procedural prototype geometry.
 
 ## Loadouts
 
@@ -120,13 +134,17 @@ npm run build -- --base=/Lil-Jeff-Simulator/
 
 Browser tests use `/usr/bin/chromium`; override with `CHROMIUM_PATH` if necessary. They cover real muzzle hits, cover and aim, movement and slides, character tasks, finite ammunition, companions, pause/quit, saved cred, campaign transitions, police tire/driver hits, studio rotation and free-roam requirements, and decoded local voice/audio output. Isolated scenarios control actor placement and timing; this is not a full manual difficulty assessment. `?test=1` exposes a diagnostic game object; normal gameplay does not.
 
-Pushes to `main` trigger `.github/workflows/deploy-pages.yml`. Enable Settings → Pages → Source → GitHub Actions if needed, and wait for the deployment to finish. No multiplayer, mobile controls, campaign save points, or final special abilities are included.
+Pushes to `main` trigger `.github/workflows/deploy-pages.yml`. Enable Settings → Pages → Source → GitHub Actions if needed, and wait for the deployment to finish. Mobile controls, campaign save points and final special abilities are not included; co-op remains experimental and requires its own relay.
 
 ## Next-update systems
 
 The center crosshair chooses a world target from the camera ray; each equipped muzzle visibly converges toward it, including in the sunroof. Damage and cover checks still begin at the physical muzzle. A red crosshair warns when the muzzle is blocked. Spread settles after 0.35 seconds of aiming; sustained fire raises heat gradually, and heat/recoil recover when firing stops. Weapon differences remain.
 
-Head silhouettes now use fitted rounded hairlines/caps. Draco keeps loose shoulder-length locs, Z78 has a distinct tied crown with violet tips, and doom retains his cap. Six enemy variants share blue-gray faction details while varying skin, facial detail, hair, proportions, clothing and accessories; sidearms, AR-Ps and MICRODRACs vary their loadout and firing cadence.
+Heads now use a shaped skull/jaw profile, cheek and chin volumes, fitted hairlines and smaller articulated hands. Draco keeps individual loose shoulder-length locs, Z78 has a distinct tied crown with violet tips, and doom has a black fade. Ten enemy variants share bright cobalt/royal-blue clothing with different skin, hair, layers, masks, accessories and weapon silhouettes. Meshes remain procedural and stylized; no photorealistic or captured character assets are included.
+
+Distance-driven gait cycles, acceleration/deceleration, blended knees and hips, movement-relative turning and reload hand gestures replace abrupt walk poses. Aiming remains independent of travel direction. This is a procedural animation pass, not motion capture or a full skeletal animation/foot-IK system.
+
+Street cyphers play character-specific bundled synthetic vocal clips after the countdown, lower the instrumental beneath the vocals, and include crew reactions. Studio staging remains one mic and one performer at a time.
 
 Rap notes retain green hit/red miss feedback and a visible ready countdown. Performers gesture at the mic. The studio has one central microphone with performers approaching in turn. Captioned closing bars include real run stats; prerecorded lines remain synthetic placeholders, and dynamic stat bars currently have no recorded vocals.
 
@@ -144,6 +162,6 @@ The relay accepts up to three players per room, stamps input sender identity, ig
 
 ### Profiling and validation
 
-Static hair/body/weapon pieces are batched by material while articulated limbs and muzzle flashes remain separate. Existing instanced neighborhood geometry remains intact. Distant enemy processing is reduced and tracer/effect counts are bounded by graphics quality. Measurements are recorded in `docs/update-qa.md`; software-rendered timings are diagnostic and do not predict a physical GPU's frame rate.
+Static hair/body/weapon pieces are batched by material while articulated limbs and muzzle flashes remain separate. Existing instanced neighborhood geometry remains intact. Distant enemy processing is reduced and tracer/effect counts are bounded by graphics quality. Tracer geometry is pooled, and distant cosmetic hair is culled by the selected quality preset. Measurements and this update’s release checks are recorded in `docs/playthrough-polish-qa.md` (earlier baseline: `docs/update-qa.md`); software-rendered timings are diagnostic and do not predict a physical GPU's frame rate.
 
 Run `npm test` for combat, progression, circuit and delayed-relay checks. `npm run test:browser` exercises the campaign, UI, controller simulation, new activities and two-browser co-op with 80 ms delay in each relay direction. `npm run build -- --base=/Lil-Jeff-Simulator/` produces the Pages build. Online availability requires deploying a relay separately.

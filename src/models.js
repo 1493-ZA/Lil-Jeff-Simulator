@@ -8,7 +8,7 @@ export function buildHair(game, person, style) {
   person.body.add(hair);
   const dark = '#171518';
   const scalp=new THREE.Mesh(new THREE.SphereGeometry(1,16,10),game.material(dark));
-  scalp.name='fitted hairline';scalp.scale.set(.163,.12,.177);scalp.position.set(0,1.99,.015);hair.add(scalp);
+  scalp.name='fitted hairline';scalp.scale.set(.153,.075,.167);scalp.position.set(0,2.03,.015);hair.add(scalp);
   const count = style === 0 ? 22 : 16;
   for (let i = 0; i < count; i++) {
     const angle = Math.PI + .8 + i / (count - 1) * (Math.PI * 2 - 1.6);
@@ -70,11 +70,21 @@ export function buildWeapon(game, id, parent, x) {
     drum.rotation.x = Math.PI / 2;
     game.box(pistol ? .1 : .13, .2, .1, '#26333a', 0, -.19, -.19, { parent: group });
   }
+  for(const side of [-1,1]){
+    for(let n=0;n<4;n++)add(.012,.075,.016,'#747d80',side*(pistol?.068:.098),.025,.02-n*.035);
+    add(.015,.027,pistol?.22:.37,'#525c61',side*(pistol?.068:.098),-.04,-.08);
+  }
+  add(.025,.035,.04,'#d8d5b8',0,.12,-length+.08);
+  add(.04,.035,.035,black,-.045,.12,.055);add(.04,.035,.035,black,.045,.12,.055);
+  const bore=game.cylinder(pistol?.029:.04,.055,'#090d10',0,.025,-length,group);bore.rotation.x=Math.PI/2;
+  const guard=new THREE.Mesh(new THREE.TorusGeometry(.063,.012,4,12,Math.PI*1.8),game.material(steel,{metalness:.6}));guard.rotation.y=Math.PI/2;guard.position.set(0,-.15,-.08);group.add(guard);
   const muzzle = new THREE.Object3D();
   muzzle.position.set(0, .025, -length);
   group.add(muzzle);
-  const flash = new THREE.Mesh(new THREE.ConeGeometry(id === 'draco' ? .24 : .13, id === 'draco' ? .66 : .38, 6), new THREE.MeshBasicMaterial({ color: '#ffcf7e' }));
-  flash.rotation.x = -Math.PI / 2;
+  const flash=new THREE.Group();
+  const core=new THREE.Mesh(new THREE.ConeGeometry(id==='draco'?.13:.08,id==='draco'?.5:.3,8),new THREE.MeshBasicMaterial({color:'#fff0c5',transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false}));core.rotation.x=-Math.PI/2;flash.add(core);
+  const shape=new THREE.Shape();for(let n=0;n<16;n++){const a=n*Math.PI/8,r=n%2?.045:(id==='draco'?.23:.15);const x=Math.cos(a)*r,y=Math.sin(a)*r;if(n)shape.lineTo(x,y);else shape.moveTo(x,y);}shape.closePath();
+  const flare=new THREE.Mesh(new THREE.ShapeGeometry(shape),new THREE.MeshBasicMaterial({color:'#ffb856',side:THREE.DoubleSide,transparent:true,opacity:.65,blending:THREE.AdditiveBlending,depthWrite:false}));flash.add(flare);
   flash.position.set(0, .025, -length - .16);
   flash.visible = false;
   group.add(flash);
@@ -102,6 +112,9 @@ export function buildCar(game, position = [4, 0, -38]) {
     box(.5,.18,.07,'#ffe0ae',x,1,-2.43);
     box(.5,.15,.07,'#d25f59',x,1,2.43);
   }
+  const door=new THREE.Group();door.name='animated driver door';door.position.set(-1.23,1.22,-1.02);group.add(door);
+  const panel=box(.08,.6,1.7,'#343340',-1.23,1.22,-.16);door.attach(panel);door.attach(windowMeshes[0]);
+  const trim=box(.09,.06,1.7,'#9a9e9b',-1.26,1.47,-.16);door.attach(trim);
   const wheels = [];
   for (const x of [-1.23,1.23]) for (const z of [-1.5,1.5]) {
     const wheel = game.cylinder(.44,.22,'#151d25',x,.5,z,group);
@@ -110,5 +123,5 @@ export function buildCar(game, position = [4, 0, -38]) {
     const hub = game.cylinder(.22,.24,'#8b8e92',x,.5,z,group);
     hub.rotation.z = Math.PI / 2;
   }
-  return { group, wheels, windowMeshes, lockState:'locked', speed: 0, yaw: 0, gate: 0, integrity: 100, collisionCooldown: 0 };
+  return { group, wheels, windowMeshes, door, lockState:'locked', speed: 0, yaw: 0, gate: 0, integrity: 100, collisionCooldown: 0 };
 }
