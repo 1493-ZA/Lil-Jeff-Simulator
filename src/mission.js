@@ -1,7 +1,8 @@
+import { markRap } from './performance.js';
 export const OBJECTIVES = [
   { title: 'Settle the score', description: 'King Draco · Drop 3 armed opps OR the marked Special Opp.', character: 0, position: [0, 0, -7], color: '#ffac65' },
-  { title: 'Own the mic', description: 'Lil doom · Reach the sidewalk mic. Press E, then hit J / K / L on the beat.', character: 1, position: [-11, 0, -25], color: '#76ddd0' },
-  { title: 'Finish the getaway', description: 'Z78 breaks in and hotwires the car. Then clear EVERY remaining opp to start CLAIM THE BLOCK.', character: 2, position: [4, 0, -38], color: '#bca1ff' },
+  { title: 'Own the mic', description: 'Switch to Lil doom → West sidewalk mic → E to begin. Hit 6/8 J / K / L beats after the countdown.', character: 1, position: [-11, 0, -25], color: '#76ddd0' },
+  { title: 'Finish the getaway', description: 'Switch to Z78 → South getaway car → Hold E to break in, then E to connect the circuit. Drive ALL 3 checkpoints AND clear every opp.', character: 2, position: [4, 0, -38], color: '#bca1ff' },
 ];
 
 export const RAP_PATTERN = ['KeyJ', 'KeyK', 'KeyL', 'KeyJ', 'KeyL', 'KeyK', 'KeyJ', 'KeyL'];
@@ -17,10 +18,10 @@ export function beatTime(index) { return 1.5 + index * BEAT_SECONDS; }
 export function createRap() { return { time: 0, hits: 0, judged: Array(RAP_PATTERN.length).fill(false), feedback: 'Find the pocket. J / K / L on the line.' }; }
 export function judgeRap(rap, code) {
   const index = RAP_PATTERN.findIndex((key, i) => !rap.judged[i] && Math.abs(rap.time - beatTime(i)) <= RAP_WINDOW);
-  if (index < 0) { rap.feedback = 'Off beat · wait for the line'; return false; }
+  if (index < 0) { rap.feedback = 'Off beat · wait for the line';rap.flash=.25;rap.lastSuccess=false; return false; }
   rap.judged[index] = true;
   const success = RAP_PATTERN[index] === code;
-  if (success) rap.hits++;
+  markRap(rap,index,success);if (success) rap.hits++;
   rap.feedback = success ? 'IN THE POCKET' : 'Wrong key · catch the next beat';
   return success;
 }

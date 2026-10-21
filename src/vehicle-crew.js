@@ -20,6 +20,7 @@ export function updateVehicleCrew(game,dt) {
       if(game.shooting&&p.draw<=0&&p.reloading<=0&&p.cooldown<=0)game.shoot(p);
       continue;
     }
+    if(game.net?.controlled(p.index))continue;
     const candidates=game.enemies.filter(e=>e.health>0&&e.group.position.distanceTo(car.group.position)<28).filter(e=>{
       const local=e.group.position.clone().sub(car.group.position).applyAxisAngle(UP,-car.yaw);
       return p.index===1?local.x>.5:local.x<-.5;

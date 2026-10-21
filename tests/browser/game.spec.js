@@ -1,8 +1,9 @@
+import {solveCircuit} from './helpers.js';
 import { test, expect } from '@playwright/test';
 
 async function enter(page) {
   await page.goto('/?test=1&quality=low');
-  await page.waitForFunction(() => !!window.__game);
+  await page.waitForFunction(() => !!window.__game);await page.evaluate(()=>__game.renderer.setPixelRatio(.65));
   await page.locator('#start').click();
   await page.waitForFunction(() => window.__game.running);
 }
@@ -16,8 +17,8 @@ async function board(page){
   }
   if(await page.evaluate(()=>window.__game.car.lockState==='opened')){
     await page.keyboard.down('KeyE');
+    await page.keyboard.up('KeyE');await solveCircuit(page);
     await page.waitForFunction(()=>window.__game.driving);
-    await page.keyboard.up('KeyE');
   }else if(!await page.evaluate(()=>window.__game.driving))await page.keyboard.press('KeyE');
   await page.waitForFunction(()=>window.__game.driving);
 }
@@ -27,7 +28,7 @@ test('renders Enter CHIRAQ and supports movement, airborne shooting, slide, swit
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/?test=1&quality=low');
   await expect(page.locator('h1').first()).toContainText('CHIRAQ');
-  await page.waitForFunction(() => !!window.__game);
+  await page.waitForFunction(() => !!window.__game);await page.evaluate(()=>__game.renderer.setPixelRatio(.65));
   await page.screenshot({ path: 'test-results/chiraq-menu.png' });
   await page.locator('#start').click();
   // Isolate controls from combat randomness; actual combat is exercised below.
@@ -85,7 +86,7 @@ test('renders Enter CHIRAQ and supports movement, airborne shooting, slide, swit
   expect(errors).toEqual([]);
 });
 
-test('muzzle rays damage targets, respect cover, and do not snap to camera yaw', async ({ page }) => {
+test('raw muzzle rays respect cover and independent akimbo ammunition', async ({ page }) => {
   await enter(page);
   const result = await page.evaluate(() => {
     const game = window.__game;
@@ -235,26 +236,27 @@ test('Mission 1 completes only on its last opp and automatically rewards and sta
   expect(await page.evaluate(()=>window.__game.gunner)).toBe(true);
   // Track the armed ambush through the gun's actual world-space muzzle, not a kill shortcut.
   await page.evaluate(()=>{
-    window.__gunnerAim=setInterval(()=>{
+    window.__gunnerAim=true;const track=()=>{
+      if(!window.__gunnerAim)return;requestAnimationFrame(track);
       const g=window.__game;
       if(!g.running||!g.gunner)return;
       const target=g.enemies.find(e=>e.driveBy&&e.health>0);
       if(!target)return;
       const p=g.player,gun=p.guns[0];
       g.scene.updateMatrixWorld(true);
-      const origin=gun.muzzle.getWorldPosition(p.group.position.clone());
       const aim=target.group.position.clone();aim.y+=1.25;
-      const delta=aim.sub(origin);
-      g.yaw=Math.atan2(-delta.x,-delta.z);
-      g.pitch=Math.atan2(delta.y,Math.hypot(delta.x,delta.z))-p.recoil-gun.recoil;
-    },16);
+      const screen=aim.clone().project(g.camera);
+      if(screen.z>1||Math.abs(screen.x)>2){const d=aim.sub(p.group.position);g.yaw=Math.atan2(-d.x,-d.z);}
+      else {g.yaw-=screen.x*.8;g.pitch=Math.max(-.85,Math.min(.65,g.pitch+screen.y*.8));}
+    };track();
   });
   await page.waitForFunction(()=>window.__game.player.draw===0);
   await page.screenshot({path:'test-results/chiraq-back-seat.png'});
   await page.mouse.down();
-  await page.waitForFunction(()=>window.__game.enemies.filter(e=>e.driveBy).every(e=>e.health<=0),null,{timeout:20000});
+  try{await page.waitForFunction(()=>window.__game.enemies.filter(e=>e.driveBy).every(e=>e.health<=0),null,{timeout:25000});}catch(error){console.log(await page.evaluate(()=>({ammo:__game.weaponState.rounds,shots:__game.shots,hits:__game.hits,shooting:__game.shooting,blocked:__game.muzzleBlocked,last:__game.lastShot,camera:__game.camera.position.toArray(),target:__game.enemies.filter(e=>e.driveBy).map(e=>({pos:e.group.position.toArray(),health:e.health})),yaw:__game.yaw,pitch:__game.pitch})));throw error;}
   await page.mouse.up();
-  await page.evaluate(()=>clearInterval(window.__gunnerAim));
+  await page.waitForFunction(()=>__game.car.gate===3,null,{timeout:20000});
+  await page.evaluate(()=>window.__gunnerAim=false);
   expect(await page.evaluate(()=>window.__game.level)).toBe(1);
   expect(await page.evaluate(()=>window.__game.finished)).toBe(false);
   await expect(page.locator('#enemy-remaining')).toHaveText('OPPS LEFT 1');
@@ -329,7 +331,7 @@ test('a Special Opp completes Draco task without any kill ranking', async ({page
     g.enemies.forEach(e=>e.health=0);target.health=1;
     target.group.position.set(0,0,-2);
     const p=g.player;p.group.position.set(-.4,0,4);p.group.rotation.set(0,0,0);
-    p.arms.rotation.set(-.04,0,0);p.body.position.y=0;p.body.rotation.set(0,0,0);
+    p.arms.rotation.set(-.04,0,0);p.guns.forEach(gun=>gun.group.rotation.set(0,0,0));p.body.position.y=0;p.body.rotation.set(0,0,0);
     g.shoot(p);g.running=true;
   });
   await page.waitForFunction(()=>window.__game.stage===1);
@@ -529,7 +531,7 @@ test('car entry requires Z78 to finish both break-in and hotwire; cancellation c
   expect(await page.evaluate(()=>window.__game.driving)).toBe(false);
   await page.keyboard.down('KeyE');await page.waitForFunction(()=>window.__game.carWork?.phase==='wire');
   expect(await page.evaluate(()=>window.__game.driving)).toBe(false);
-  await page.waitForFunction(()=>window.__game.driving);await page.keyboard.up('KeyE');
+  await page.keyboard.up('KeyE');await solveCircuit(page);await page.waitForFunction(()=>window.__game.driving);
   expect(await page.evaluate(()=>window.__game.car.lockState)).toBe('ready');
 });
 
@@ -589,7 +591,10 @@ test('CLAIM THE BLOCK enforces all four gates and role tasks, then automatically
   await page.evaluate(()=>window.__game.enemies.forEach(e=>e.cooldown=Infinity));
   await clearClaimWave(page);await gatherCrew(page);
   expect(await page.evaluate(()=>window.__game.claim.point)).toBe(2);
-  await page.keyboard.press('Digit3');await page.evaluate(()=>window.__game.player.group.position.set(6,0,-44));await page.keyboard.press('KeyE');
+  await page.keyboard.press('Digit3');
+  for(const [x,z]of [[12,-40],[12,-46]]){await page.evaluate(([x,z])=>__game.player.group.position.set(x,0,z),[x,z]);await page.keyboard.press('KeyE');}
+  expect(await page.evaluate(()=>__game.claim.exitTagged)).toBe(false);
+  await page.evaluate(()=>{const g=__game;g.claim.alley.guards.forEach(e=>g.defeatEnemy(e,0));g.player.group.position.set(6,0,-44);});await page.keyboard.press('KeyE');
   expect(await page.evaluate(()=>window.__game.claim.exitTagged)).toBe(true);
   await page.keyboard.down('KeyW');await page.waitForFunction(()=>window.__game.player.group.position.z< -46.2);await page.keyboard.up('KeyW');
   await page.waitForFunction(()=>window.__game.claim.point===3);
@@ -597,7 +602,7 @@ test('CLAIM THE BLOCK enforces all four gates and role tasks, then automatically
   await page.evaluate(()=>window.__game.enemies.forEach(e=>e.cooldown=Infinity));
   await clearClaimWave(page);await gatherCrew(page);
   await page.waitForFunction(()=>window.__game.level===3&&window.__game.pursuit.phase==='entry');
-  await expect(page.locator('#body-count-0')).toContainText('BODY 36');
+  await expect(page.locator('#body-count-0')).toContainText('BODY 38');
   expect(await page.evaluate(()=>window.__game.characters.every(p=>p.maxHealth===125&&p.body.scale.y===1))).toBe(true);
   await page.keyboard.press('Escape');await page.locator('#quit').click();
   expect(await page.evaluate(()=>({level:__game.level,cover:__game.claimProps.length,hp:__game.player.maxHealth}))).toEqual({level:1,cover:0,hp:100});

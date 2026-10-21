@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {alignWeapon} from './handling.js';
 import { posture } from './cover.js';
 import { WEAPONS, needsReload } from './combat.js';
 
@@ -34,7 +35,7 @@ export function safeFooting(game, point, radius=.4) {
 export function updateCompanions(game,dt) {
   if(game.driving) return;
   for(const p of game.characters) {
-    if(p===game.player || p.health<=0) continue;
+    if(p===game.player || game.net?.controlled(p.index) || p.health<=0) continue;
     const pos=p.group.position;
     if(!p.aiGoal)p.aiWaypoint=null;
     const enemies=game.enemies.filter(e=>e.health>0 && !e.driveBy);
@@ -52,12 +53,14 @@ export function updateCompanions(game,dt) {
       const goal=center.clone().addScaledVector(away,1.7).setY(0);
       if(center.distanceTo(leader)<27&&safeFooting(game,goal))coverGoal=goal;
     }
+    const cleared=game.level===2&&!enemies.some(e=>e.claimWave===game.claim.point);
+    if(cleared)coverGoal=null;
     const holdCover=Boolean(coverGoal);
     if(holdCover){p.aiGoal=coverGoal;p.coverAnchor=coverGoal.clone();p.coverBox=assigned;p.aiPlanCooldown=.8;}
     else{p.coverAnchor=null;p.coverBox=null;}
     if(!holdCover&&(p.aiPlanCooldown<=0 || !p.aiGoal || p.aiGoal.distanceTo(leader)>12)) {
       const side=p.index%2 ? -1 : 1;
-      const formation=new THREE.Vector3(side*2.3,0,3.5+(p.index===2?1:0)).applyAxisAngle(new THREE.Vector3(0,1,0),game.player.group.rotation.y).add(leader);
+      const formation=cleared?new THREE.Vector3(side*2,0,[-3,-24,-46,-69][game.claim.point]+1):new THREE.Vector3(side*2.3,0,2.5).applyAxisAngle(new THREE.Vector3(0,1,0),game.player.group.rotation.y).add(leader);
       formation.y=0;
       const candidates=[formation,formation.clone().add(new THREE.Vector3(-2,0,1)),formation.clone().add(new THREE.Vector3(2,0,1))];
       if(nearest) for(const box of game.colliders) {
@@ -78,6 +81,13 @@ export function updateCompanions(game,dt) {
       p.aiGoal=best || pos.clone();
       p.aiPlanCooldown=.8;
     }
+    const gap=pos.distanceTo(leader);
+    const screen=pos.clone().add(new THREE.Vector3(0,1,0)).project(game.camera);
+    if(gap>32&&(Math.abs(screen.x)>1.2||Math.abs(screen.y)>1.2||screen.z>1)){
+      const rescue=p.aiGoal?.clone();if(rescue&&safeFooting(game,rescue)){pos.copy(rescue);p.aiWaypoint=null;}
+    }
+    p.stuckTime=(p.lastAIPosition&&pos.distanceTo(p.lastAIPosition)<.005)?(p.stuckTime||0)+dt:0;
+    p.lastAIPosition=pos.clone();if(p.stuckTime>1.2){p.aiWaypoint=null;p.aiPlanCooldown=0;p.stuckTime=0;}
     // Finish a chosen corner before choosing another, avoiding oscillation
     // between the front and back corners of a barricade.
     if(p.aiWaypoint&&(p.aiWaypoint.distanceTo(pos)<.2||p.aiWaypoint.distanceTo(p.aiGoal)>12))p.aiWaypoint=null;
@@ -88,7 +98,7 @@ export function updateCompanions(game,dt) {
     if(desired.length()>(waypoint===p.aiGoal ? .65 : .1) && p.grounded) {
       desired.normalize();
       for(const angle of [0,.65,-.65,1.2,-1.2]) {
-        const step=desired.clone().applyAxisAngle(new THREE.Vector3(0,1,0),angle).multiplyScalar((hurt?3.4:2.8)*dt);
+        const step=desired.clone().applyAxisAngle(new THREE.Vector3(0,1,0),angle).multiplyScalar((gap>12?8:cleared?6:hurt?3.4:4.2)*dt);
         const next=pos.clone().add(step);
         if(!safeFooting(game,next) || nearest && next.distanceTo(nearest.group.position)<2.5)continue;
         game.moveWithCollision(p,step); moving=true;
@@ -111,7 +121,7 @@ export function updateCompanions(game,dt) {
     if(p.cooldown>0||p.draw>0||p.reloading>0)continue;
     const desiredYaw=Math.atan2(-direction.x,-direction.z);
     if(Math.abs(angleDelta(p.group.rotation.y,desiredYaw))>.16)continue;
-    const muzzle=p.guns[0].muzzle.getWorldPosition(new THREE.Vector3());
+    alignWeapon(game,p,to);const muzzle=p.guns[0].muzzle.getWorldPosition(new THREE.Vector3());
     if(!game.hasLineOfSight(muzzle,to))continue;
     const state=p.loadout[p.slot];
     if(!state.rounds.some(n=>n>0)) {

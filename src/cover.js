@@ -39,6 +39,7 @@ export function updateCover(game,p,dt,moving){
   posture(p,dt,{lean,armsShift,crouched:p.crouched,peek:p.peek,sliding:p.slide>0,moving,time:game.elapsed});
 }
 export function assistAim(game,p,dt){
+  if(game.net?.remoteTarget)return;
   game.aimTarget=null;
   if(!game.aiming||p!==game.player||game.rap){game.aimSession=null;return;}
   if(!game.aimSession||game.aimSession.character!==p.index)game.aimSession={character:p.index,start:game.elapsed,target:null};
@@ -56,8 +57,12 @@ export function assistAim(game,p,dt){
   if(!best)return;
   session.target=best.enemy;game.aimTarget=best.enemy;
   const d=best.point.clone().sub(origin),yaw=Math.atan2(-d.x,-d.z),pitch=Math.atan2(d.y,Math.hypot(d.x,d.z));
-  game.yaw+=Math.atan2(Math.sin(yaw-game.yaw),Math.cos(yaw-game.yaw))*Math.min(1,dt*9);
-  game.pitch=THREE.MathUtils.damp(game.pitch,pitch,9,dt);
+  const view=game.camera.getWorldDirection(new THREE.Vector3()),delta=best.point.clone().sub(game.camera.position);
+  const currentYaw=Math.atan2(-view.x,-view.z),targetYaw=Math.atan2(-delta.x,-delta.z);
+  const currentPitch=Math.atan2(view.y,Math.hypot(view.x,view.z)),targetPitch=Math.atan2(delta.y,Math.hypot(delta.x,delta.z));
+  const gain=Math.min(1,dt*9);
+  game.yaw+=Math.atan2(Math.sin(targetYaw-currentYaw),Math.cos(targetYaw-currentYaw))*gain;
+  game.pitch=THREE.MathUtils.clamp(game.pitch+(targetPitch-currentPitch)*gain,-.85,.65);
   p.group.rotation.y+=Math.atan2(Math.sin(yaw-p.group.rotation.y),Math.cos(yaw-p.group.rotation.y))*Math.min(1,dt*18);
   p.arms.rotation.x=THREE.MathUtils.damp(p.arms.rotation.x,pitch-p.body.rotation.x,18,dt);
 }

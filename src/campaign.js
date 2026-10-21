@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {ALLEY_STOPS,alleyInstruction} from './alley.js';
 import { findCover, posture } from './cover.js';
 import { beginPursuit } from './pursuit.js';
 import { createLoadout, ROSTER, ENEMY_HEALTH } from './combat.js';
@@ -11,7 +12,7 @@ export const CLAIM_POINTS = [
 ];
 
 export const livingOpps=game=>game.enemies.filter(e=>e.health>0).length;
-export const missionOneCleared=game=>game.level===1 && game.stage===2 && game.ambushStarted && game.car.lockState==='ready' && livingOpps(game)===0;
+export const missionOneCleared=game=>game.level===1 && game.stage===2 && game.ambushStarted && game.car.lockState==='ready' && game.car.gate===3 && livingOpps(game)===0;
 export const crewAtPoint=(characters,z)=>characters.every(p=>p.health>0 && Math.abs(p.group.position.x)<10 && Math.abs(p.group.position.z-z)<=5);
 export const waveCount=game=>game.enemies.filter(e=>e.claimWave===game.claim.point && e.health<=0).length;
 
@@ -45,7 +46,7 @@ function buildClaimProps(game) {
     const label=game.label(`0${i+1} / ${point.name}`,'#d5e8b9',5,0,3,point.z,27);
     game.claimProps.push(ring,label);game.claimMarkers.push({ring,label});
   });
-  const flank=game.label('Z78 / SIDE LANE','#cfb9ff',3.5,6,3,-44,30);
+  const flank=game.label('Z78 / ALLEY HANDOFF','#cfb9ff',3.5,12,3,-40,30);
   game.claimProps.push(flank);game.flankMarker=flank;
 }
 
@@ -97,13 +98,14 @@ export function updateClaimBlock(game) {
   game.claimMarkers.forEach((marker,i)=>{marker.ring.visible=marker.label.visible=i===game.claim.point;marker.label.lookAt(game.camera.position);});
   game.flankMarker.visible=game.claim.point===2&&!game.claim.exitTagged;
   game.flankMarker.lookAt(game.camera.position);
+  const stop=ALLEY_STOPS[Math.min(game.claim.alley?.step||0,2)];game.flankMarker.position.set(stop[0],3,stop[1]);
   const clear=waveCount(game)>=point.quota;
   const together=crewAtPoint(game.characters,point.z);
   const roleDone=point.role===1?game.claim.verseDone:point.role===2?game.claim.exitTagged:true;
   const prompt=document.querySelector('#interaction');prompt.classList.add('hidden');
   if(clear && !game.rap) {
     prompt.classList.remove('hidden');
-    if(!roleDone)prompt.innerHTML=point.role===1?'<kbd>2</kbd> DOOM · <kbd>E</kbd> CORNER CYPHER<small>Get near the capture ring and drop a verse.</small>':'<kbd>3</kbd> Z78 · <kbd>E</kbd> TAG THE SIDE LANE<small>Reach the purple marker on the right.</small>';
+    if(!roleDone)prompt.innerHTML=point.role===1?'<kbd>2</kbd> DOOM · <kbd>E</kbd> CORNER CYPHER<small>Get near the capture ring and drop a verse.</small>':alleyInstruction(game);
     else prompt.innerHTML='AREA CLEAR · MOVE THE WHOLE CREW UP<small>Bring all three into the green capture zone.</small>';
   }
   if(clear&&together&&roleDone) {

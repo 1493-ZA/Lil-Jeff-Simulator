@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-async function enter(page){await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.locator('#start').click();}
+async function enter(page){await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.evaluate(()=>__game.renderer.setPixelRatio(.65));await page.locator('#start').click();}
 test('actual muzzle impacts apply head, chest, abdomen and leg damage',async({page})=>{
  await enter(page);
  const wounds=await page.evaluate(()=>{

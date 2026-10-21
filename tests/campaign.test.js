@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { missionOneCleared, crewAtPoint, CLAIM_POINTS, waveCount } from '../src/campaign.js';
 
 test('Mission 1 cannot end with any surviving opp or before car/ambush tasks',()=>{
-  const g={level:1,stage:2,ambushStarted:true,car:{lockState:'ready'},enemies:[{health:0,driveBy:true},{health:1}]};
+  const g={level:1,stage:2,ambushStarted:true,car:{lockState:'ready',gate:3},enemies:[{health:0,driveBy:true},{health:1}]};
   assert.equal(missionOneCleared(g),false);
   g.enemies[1].health=0;assert.equal(missionOneCleared(g),true);
+  g.car.gate=2;assert.equal(missionOneCleared(g),false);g.car.gate=3;
   g.ambushStarted=false;assert.equal(missionOneCleared(g),false);
   g.ambushStarted=true;g.car.lockState='opened';assert.equal(missionOneCleared(g),false);
 });

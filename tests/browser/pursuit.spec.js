@@ -1,11 +1,12 @@
+import {solveCircuit} from './helpers.js';
 import {test,expect} from '@playwright/test';
 async function enterPursuit(page){
- await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.locator('#start').click();
+ await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.evaluate(()=>__game.renderer.setPixelRatio(.65));await page.locator('#start').click();
  await page.evaluate(()=>{const g=window.__game;g.defeatedNames=[{name:'Static',killer:0},{name:'Switchback',killer:1},{name:'Vex',killer:2}];g.level=3;g.reset();});
 }
 async function startCar(page){
  await page.keyboard.down('KeyE');await page.waitForFunction(()=>__game.car.lockState==='opened');await page.keyboard.up('KeyE');
- await page.keyboard.down('KeyE');await page.waitForFunction(()=>__game.pursuit.phase==='chase');await page.keyboard.up('KeyE');
+ await page.keyboard.press('KeyE');await solveCircuit(page);await page.waitForFunction(()=>__game.pursuit.phase==='chase');
 }
 async function disableWave(page,type='tire'){
  return page.evaluate(type=>{
@@ -16,7 +17,7 @@ async function disableWave(page,type='tire'){
      cop.group.position.set(0,0,Math.max(-68,Math.min(10,g.car.group.position.z+12)));g.scene.updateMatrixWorld(true);
      const target=cop.parts.find(m=>m.userData.police.type===type);const point=target.getWorldPosition(p.group.position.clone());
      for(let shot=0;shot<14&&!cop.disabled;shot++){
-       p.recoil=0;p.guns[0].recoil=0;p.guns[0].group.rotation.x=0;
+       p.recoil=0;p.guns[0].recoil=0;p.guns[0].group.rotation.set(0,0,0);
        for(let n=0;n<8;n++){
          g.scene.updateMatrixWorld(true);const origin=p.guns[0].muzzle.getWorldPosition(p.group.position.clone()),d=point.clone().sub(origin);
          p.group.rotation.y=Math.atan2(-d.x,-d.z);p.arms.rotation.x=Math.atan2(d.y,Math.hypot(d.x,d.z));
@@ -64,7 +65,7 @@ test('studio shares one beat, all three change flows, on-fire boosts cred and on
    await page.evaluate(({turn,pattern,flow})=>new Promise(resolve=>{
      const g=__game;let index=0;const hit=()=>{
        if(g.pursuit.turn!==turn){resolve();return;}
-       while(index<8&&g.rap.time>=.6+flow[index]*60/148-.08){window.dispatchEvent(new KeyboardEvent('keydown',{code:pattern[index]}));window.dispatchEvent(new KeyboardEvent('keyup',{code:pattern[index]}));index++;}
+       while(index<8&&g.rap.time>=6*60/148+flow[index]*60/148-.08){window.dispatchEvent(new KeyboardEvent('keydown',{code:pattern[index]}));window.dispatchEvent(new KeyboardEvent('keyup',{code:pattern[index]}));index++;}
        if(index===8){resolve();return;}requestAnimationFrame(hit);
      };hit();
    }),{turn,pattern:patterns[turn],flow:flows[turn]});
@@ -80,7 +81,7 @@ test('studio shares one beat, all three change flows, on-fire boosts cred and on
 });
 test('locally bundled combat voices decode and music defaults are louder with a compressed output',async({page})=>{
  const errors=[];page.on('response',r=>{if(r.url().includes('/audio/')&&r.status()>=400)errors.push(r.url());});
- await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.locator('#start').click();
+ await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.evaluate(()=>__game.renderer.setPixelRatio(.65));await page.locator('#start').click();
  expect(await page.evaluate(()=>__game.music.volume)).toBeGreaterThan(.6);
  await page.waitForFunction(()=>__game.music.samples.size===6);
  await page.evaluate(async()=>{await __game.voices.say('taunt-0','Opp: I see you behind that car!',3,{force:true});});

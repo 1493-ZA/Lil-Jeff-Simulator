@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {createCircuit,connectCircuit} from '../src/hotwire.js';
+import {shotSpread,updateHandling} from '../src/handling.js';import {WEAPONS} from '../src/combat.js';
+import {deadzone} from '../src/input.js';import {updateRapFeedback} from '../src/performance.js';
+import {missionFourAvailable,loadStreet} from '../src/street.js';
+test('circuit connections validate matching colors and cannot double-count a link',()=>{for(const r of [0,.2,.7,.999]){const t=createCircuit(()=>r);for(let i=0;i<3;i++){t.selected=i;assert.equal(connectCircuit(t,(t.order.indexOf(['AMBER','CYAN','VIOLET'][i])+1)%3),false);t.selected=i;assert.equal(connectCircuit(t,t.order.indexOf(['AMBER','CYAN','VIOLET'][i])),true);t.selected=i;connectCircuit(t,t.order.indexOf(['AMBER','CYAN','VIOLET'][i]));}assert.equal(t.connected.length,3);}});
+test('settled aim improves accuracy, sustained heat raises spread and recovers',()=>{const p={heat:1,recoil:.035,grounded:true};const hot=shotSpread(WEAPONS.draco,p);updateHandling(p,true,.5);assert.ok(p.recoil<.001);assert.ok(shotSpread(WEAPONS.draco,p,{aiming:true})<hot);updateHandling(p,false,3);assert.equal(p.heat,0);assert.equal(p.aimTime,0);});
+test('missed notes receive visible failure state; controller deadzone preserves analog range',()=>{const r={time:2,judged:Array(8).fill(false)};updateRapFeedback(r,[1,3,4,5,6,7,8,9],.1);assert.equal(r.results[0],false);assert.equal(r.lastSuccess,false);assert.equal(deadzone(.1),0);assert.equal(deadzone(1),1);assert.ok(deadzone(.5)>.1&&deadzone(.5)<.5);});
+test('Mission 4 requires actual crew cred and malformed money save recovers',()=>{const g={characters:[{xp:2000},{xp:2000},{xp:999}]};assert.equal(missionFourAvailable(g),false);g.characters[2].xp=1000;assert.equal(missionFourAvailable(g),true);assert.deepEqual(loadStreet({getItem:()=>'{broken'}),{money:0,completed:0});});

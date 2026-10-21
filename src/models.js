@@ -1,3 +1,4 @@
+import {batchStatic} from './quality.js';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
@@ -6,13 +7,14 @@ export function buildHair(game, person, style) {
   hair.name = style === 0 ? 'shoulder-length loose locs' : 'tied crown locs with violet tips';
   person.body.add(hair);
   const dark = '#171518';
-  game.box(.46, .16, .44, dark, 0, 2.12, 0, { parent: hair });
+  const scalp=new THREE.Mesh(new THREE.SphereGeometry(1,16,10),game.material(dark));
+  scalp.name='fitted hairline';scalp.scale.set(.163,.12,.177);scalp.position.set(0,1.99,.015);hair.add(scalp);
   const count = style === 0 ? 22 : 16;
   for (let i = 0; i < count; i++) {
-    const angle = .35 + i / (count - 1) * (Math.PI * 2 - .7);
+    const angle = Math.PI + .8 + i / (count - 1) * (Math.PI * 2 - 1.6);
     const length = style === 0 ? .5 + (i % 3) * .055 : .65 + (i % 4) * .045;
     const pivot = new THREE.Group();
-    pivot.position.set(Math.sin(angle) * .24, style === 0 ? 2.12 : 2.22, Math.cos(angle) * .23);
+    pivot.position.set(Math.sin(angle) * .155, style === 0 ? 2.04 : 2.09, Math.cos(angle) * .17);
     pivot.rotation.z = Math.sin(angle) * (style === 0 ? .1 : .3);
     hair.add(pivot);
     for (let j = 0; j < 4; j++) {
@@ -21,10 +23,10 @@ export function buildHair(game, person, style) {
     }
   }
   if (style === 1) {
-    game.cylinder(.18, .23, dark, 0, 2.33, .02, hair);
-    game.cylinder(.19, .05, '#bca1ff', 0, 2.27, .02, hair);
+    const knot=new THREE.Mesh(new THREE.SphereGeometry(.09,12,8),game.material(dark));knot.position.set(0,2.14,.05);hair.add(knot);
+    game.cylinder(.074,.025,'#bca1ff',0,2.13,.05,hair);
   }
-  return hair;
+  batchStatic(hair,true);return hair;
 }
 
 export function buildWeapon(game, id, parent, x) {
@@ -76,7 +78,7 @@ export function buildWeapon(game, id, parent, x) {
   flash.position.set(0, .025, -length - .16);
   flash.visible = false;
   group.add(flash);
-  return { group, muzzle, flash, recoil: 0, flashTime: 0 };
+  batchStatic(group);return { group, muzzle, flash, recoil: 0, flashTime: 0 };
 }
 
 export function buildCar(game, position = [4, 0, -38]) {

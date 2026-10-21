@@ -1,6 +1,6 @@
 # Lil Jeff Simulator
 
-A third-person browser prototype with King Draco, Lil doom, and Z78. Three connected missions take place on a fictional Chicago-inspired block, ending in a playable free-roam preview. Play the hosted build at https://1493-ZA.github.io/Lil-Jeff-Simulator/ after the GitHub Pages deployment finishes.
+A third-person browser prototype with King Draco, Lil doom, and Z78. Three connected missions take place on a fictional Chicago-inspired block, ending in repeatable free-roam activities. Play the hosted build at https://1493-ZA.github.io/Lil-Jeff-Simulator/ after the GitHub Pages deployment finishes.
 
 ## Run locally
 
@@ -11,7 +11,7 @@ npm ci --cache /tmp/lil-jeff-npm
 npm run dev
 ```
 
-Open the address Vite prints and click **Enter CHIRAQ**. Use a desktop browser with WebGL, keyboard, and mouse. `?quality=low` reduces render resolution and disables shadows. All fonts, surfaces, voices, and music are local; no account or API key is needed.
+Open the address Vite prints and click **Enter CHIRAQ**. Use a desktop browser with WebGL and keyboard/mouse or an Xbox-style controller. Choose Low, Medium, or High graphics in the menu, or use `?quality=low|medium|high`. Low keeps native CSS resolution (up to 1× device pixel ratio), disables shadows, reduces render distance, and caps effects; Medium/High increase shadows and detail budgets. All fonts, surfaces, voices, and music are local; no account or API key is needed.
 
 ## Controls
 
@@ -29,7 +29,7 @@ Open the address Vite prints and click **Enter CHIRAQ**. Use a desktop browser w
 | Right mouse in cover | Automatically peek over or around the face you aim toward |
 | 1 / 2 / 3 | Draco / doom / Z78 (sunroof chase fixes control to Draco) |
 | Q / R | Swap weapon / reload |
-| E | Interact; hold separately for car break-in and hotwiring |
+| E | Interact; hold for break-in, then solve the color circuit |
 | J / K / L | Perform the displayed rap notes |
 | WASD in Mission 1’s car | Drive / steer while Z78 is selected |
 | Space / E in Mission 1’s car | Brake / exit |
@@ -46,11 +46,11 @@ Inactive crew follow, commit to corner waypoints to avoid getting stuck, seek as
 
 ### Mission 1 — ENTER CHIRAQ
 
-Draco needs three takedowns or the named **Static / Special Opp**. Doom then performs a 6-of-8-note sidewalk verse. Z78 holds E to break into the marked sedan, releases, then holds E again to hotwire. The phases take 1.6 and 3 seconds; interruptions cannot bypass them. These are fictional timed interactions.
+Draco needs three takedowns or the named **Static / Special Opp**. Doom then performs a 6-of-8-note sidewalk verse. Z78 holds E for 1.6 seconds to break into the marked sedan, releases, then presses E to open a fictional color circuit puzzle. Select a left node with 1/2/3 and its matching right node with J/K/L, or click the nodes. Connect all three; wrong pairs flash red and do not advance progress. Escape cancels without starting the car. Controller: D-pad up/down selects the left node, left/right selects the right node, X selects and A connects. The endpoint order varies between attempts. Both vehicles use this puzzle.
 
 Drive through the route to trigger the ambush. In the car, Z78 drives automatically whenever he is not selected; Draco and doom provide weak autonomous fire when inactive. The driver can shoot one pistol while steering. Vehicle impacts also count as takedowns.
 
-**Every opponent must be down**, including street opponents left behind, before Mission 2 begins. The route’s last ring does not end the mission. OPPS LEFT and remaining-opponent markers help find survivors. After the hotwire and ambush, the final kill automatically launches Mission 2.
+**Every opponent must be down**, including street opponents left behind, before Mission 2 begins. The route’s last ring does not end the mission. OPPS LEFT and remaining-opponent markers help find survivors. Mission 2 starts only after combat and rap tasks, successful hotwiring, all three route checkpoints, and every opponent being defeated. Finishing kills early cannot bypass the route.
 
 All three receive **125 max health, full healing, and fully refilled primary and sidearm ammunition**. The health reward does not stack on retries. Body counts carry through the campaign.
 
@@ -62,7 +62,7 @@ The crew starts standing behind taller barricades, with the same character dimen
 | --- | --- | --- |
 | TAKE THE CORNER | 6 | Gather the crew |
 | CORNER CYPHER | 8 | Doom performs another 6-of-8 verse |
-| SPIN THE SIDE LANE | 10, including **Switchback** | Z78 tags the purple flank marker with E |
+| SPIN THE SIDE LANE | 10, including **Switchback** | Z78 inspects an alley package, meets a second contact, clears two ambushers, and returns the package to the purple marker |
 | CLAIM THE BLOCK | 12, including **Vex / Block Captain** | Gather the crew |
 
 Each checkpoint grants all three 15 street cred. The last capture automatically starts Mission 3. Run It Back retries the current mission without stacking health rewards.
@@ -75,7 +75,7 @@ Disable **six police cars in three pairs** by shooting a tire or the driver. The
 
 When the final car is disabled, Z78 takes the crew to After Hours Studio. All three perform original lines over **one continuous 148 BPM beat**, taking turns: Draco’s straight pocket, doom’s syncopation, Z78’s triplet switch. The beat has programmed drops. Defeated fictional special-opponent names are recorded during combat and referenced in the studio lyrics. No real artist lyrics or recordings are used.
 
-Press J/K/L when the notes meet the line. Each performer needs at least **6/8** in a verse, and the session needs **180 earned street cred**. Previously saved cred cannot bypass the studio. Unfinished performers repeat in rotation. Once both conditions are met, Mission 3 ends and the crew returns to the block in **free roam**. You can walk and switch characters; expanded open-map activities remain future work.
+Press J/K/L when the notes meet the line. Each performer needs at least **6/8** in a verse, and the session needs **180 earned street cred**. Previously saved cred cannot bypass the studio. Unfinished performers repeat in rotation. Once both conditions are met, Mission 3 ends and the crew returns to the block in **free roam**. Green markers offer a repeatable rap challenge, rival fight, two-leg alley delivery, and Cinder priority-target encounter with an escape leg. Activities reward saved money, Street Cred, health and reserve ammo. Completed activities reopen after 45 seconds. Mission 4 requires 5,000 total crew Street Cred and deliberate interaction at the southern marker; its story is not implemented yet and never starts automatically.
 
 ## Combat balance and hit locations
 
@@ -121,3 +121,29 @@ npm run build -- --base=/Lil-Jeff-Simulator/
 Browser tests use `/usr/bin/chromium`; override with `CHROMIUM_PATH` if necessary. They cover real muzzle hits, cover and aim, movement and slides, character tasks, finite ammunition, companions, pause/quit, saved cred, campaign transitions, police tire/driver hits, studio rotation and free-roam requirements, and decoded local voice/audio output. Isolated scenarios control actor placement and timing; this is not a full manual difficulty assessment. `?test=1` exposes a diagnostic game object; normal gameplay does not.
 
 Pushes to `main` trigger `.github/workflows/deploy-pages.yml`. Enable Settings → Pages → Source → GitHub Actions if needed, and wait for the deployment to finish. No multiplayer, mobile controls, campaign save points, or final special abilities are included.
+
+## Next-update systems
+
+The center crosshair chooses a world target from the camera ray; each equipped muzzle visibly converges toward it, including in the sunroof. Damage and cover checks still begin at the physical muzzle. A red crosshair warns when the muzzle is blocked. Spread settles after 0.35 seconds of aiming; sustained fire raises heat gradually, and heat/recoil recover when firing stops. Weapon differences remain.
+
+Head silhouettes now use fitted rounded hairlines/caps. Draco keeps loose shoulder-length locs, Z78 has a distinct tied crown with violet tips, and doom retains his cap. Six enemy variants share blue-gray faction details while varying skin, facial detail, hair, proportions, clothing and accessories; sidearms, AR-Ps and MICRODRACs vary their loadout and firing cadence.
+
+Rap notes retain green hit/red miss feedback and a visible ready countdown. Performers gesture at the mic. The studio has one central microphone with performers approaching in turn. Captioned closing bars include real run stats; prerecorded lines remain synthetic placeholders, and dynamic stat bars currently have no recorded vocals.
+
+### Xbox-style controls
+
+Standard-mapped Gamepad API controllers connect without setup. Left stick moves with analog speed, right stick looks, LT aims, RT fires, A jumps/brakes, B crouches (LB+B slides), LB sprints, X interacts, Y swaps and RB reloads. D-pad left/up/right selects Draco/doom/Z78; down shows Street Cred. Menu/Start pauses or resumes. D-pad navigates menu buttons and graphic options; A activates. Rap uses X/Y/B. Prompts switch immediately on controller or keyboard/mouse input. Optional vibration is used when the browser/controller supports it. Physical device feel still needs a hardware playtest.
+
+### Optional online co-op
+
+There was no pre-existing multiplayer implementation. This update adds an experimental three-player room relay and host-authoritative simulation. The host controls damage, AI, vehicle routes and mission/objective/minigame state. Human guests take normal damage; only inactive AI crew have a health floor. Guests send input at 20 Hz; the host sends state at 20 Hz, with interpolated actor and vehicle positions and event-based tracers. Characters occupied by a guest are reserved; Draco remains reserved for the host, and guests can swap between unoccupied guest characters. Stale inputs stop after 500 ms. Joining receives current state; leaving returns that character to AI. Host departure ends the room; host migration/reconnect recovery is not implemented.
+
+GitHub Pages hosts static files and cannot run the relay. To try locally, run `npm run relay` in a second terminal, then enter `ws://localhost:8787` under **Online co-op**. Create a room with the code blank, share the generated code, and let other players join using the same relay address/code. The host starts the mission. For internet play, deploy `server/relay.js` on a Node host behind HTTPS/WebSocket TLS and use its `wss://` address. The game never assumes localhost on the public website. Room entry addresses/codes still require text entry. Pause on the host pauses the shared simulation; guest pause affects only that guest's view.
+
+The relay accepts up to three players per room, stamps input sender identity, ignores guest snapshots, limits payloads/message rates and checks heartbeats. Room codes are invitations, not account authentication. This is cooperative host authority, not a hardened competitive game server.
+
+### Profiling and validation
+
+Static hair/body/weapon pieces are batched by material while articulated limbs and muzzle flashes remain separate. Existing instanced neighborhood geometry remains intact. Distant enemy processing is reduced and tracer/effect counts are bounded by graphics quality. Measurements are recorded in `docs/update-qa.md`; software-rendered timings are diagnostic and do not predict a physical GPU's frame rate.
+
+Run `npm test` for combat, progression, circuit and delayed-relay checks. `npm run test:browser` exercises the campaign, UI, controller simulation, new activities and two-browser co-op with 80 ms delay in each relay direction. `npm run build -- --base=/Lil-Jeff-Simulator/` produces the Pages build. Online availability requires deploying a relay separately.
