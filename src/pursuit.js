@@ -25,7 +25,7 @@ export function beginPursuit(game,retry=false){
   game.car.group.children.filter(m=>m.isMesh&&m.position.y<1.3&&m.position.y>.7).forEach(m=>m.material.color.set('#454c52'));
   game.level=3;game.stage=0;game.active=2;game.driving=game.gunner=game.aiming=game.shooting=false;game.carWork=null;game.rap=null;
   game.pursuit={phase:'entry',cops:[],spawned:0,disabled:0,route:0,time:0,completed:[false,false,false],credEarned:0,turn:0};
-  game.characters.forEach((p,i)=>{p.kills=game.missionTwoKills?.[i]||0;p.health=p.maxHealth;p.group.visible=true;p.group.position.set((i-1)*2,0,-58);p.body.scale.set(1,1,1);p.body.position.set(0,0,0);p.body.rotation.set(0,0,0);p.crouched=p.peek=false;p.arms.position.x=0;p.coverBox=null;p.coverAnchor=null;p.slide=0;p.velocityY=0;p.grounded=true;p.loadout=createLoadout(ROSTER[i].primary);p.slot=0;p.guns=p.weaponRigs[0];p.draw=.5;p.reloading=0;p.cooldown=0;p.legs.forEach(l=>{l.visible=true;l.rotation.x=0;if(l.userData.shin)l.userData.shin.rotation.x=0;});});
+  game.characters.forEach((p,i)=>{p.kills=game.missionTwoKills?.[i]||0;p.health=p.maxHealth;p.group.visible=true;p.group.position.set((i-1)*2,0,-58);p.body.scale.set(1,1,1);p.body.position.set(0,0,0);p.body.rotation.set(0,0,0);p.crouched=p.peek=false;p.arms.position.set(0,1.5,0);p.coverBox=null;p.coverAnchor=null;p.aiGoal=null;p.aiWaypoint=null;p.slide=0;p.velocityY=0;p.grounded=true;p.loadout=createLoadout(ROSTER[i].primary);p.slot=0;p.guns=p.weaponRigs[0];p.draw=.5;p.reloading=0;p.cooldown=0;p.legs.forEach(l=>{l.visible=true;l.rotation.x=0;if(l.userData.shin)l.userData.shin.rotation.x=0;});});
   game.keys.clear();game.yaw=0;game.pitch=-.08;game.finished=false;game.started=game.running=true;
   ['#result','#pause-menu','#rap-panel','#drive-panel','#car-work-panel'].forEach(s=>$(s).classList.add('hidden'));$('#hud').classList.remove('hidden');
   game.narrationQueue=[];game.toastTime=0;game.toast('MISSION 03 / BLUE LIGHTS. Z78: New ride. Hold E to break in, then hold E again to get us moving.');
@@ -42,8 +42,8 @@ function spawnCops(game){
     pos.x=THREE.MathUtils.clamp(pos.x,-3.5,3.5);pos.z=THREE.MathUtils.clamp(pos.z,-75,17);
     const car=buildCar(game,pos.toArray());car.group.name='police pursuit car';car.parts=[];car.disabled=false;car.health=160;
     car.group.traverse(m=>{if(m.isMesh)m.material.color.set(m.position.y>1.3?'#d8dfdf':'#202b33');});
-    car.wheels.forEach(w=>{w.userData.police={car,type:'tire',health:45};car.parts.push(w);});
-    const driver=new THREE.Mesh(new THREE.SphereGeometry(.3,16,12),game.material('#b1967d'));driver.position.set(-.55,1.66,-.52);driver.userData.police={car,type:'driver',health:80};car.group.add(driver);car.parts.push(driver);
+    car.wheels.forEach(w=>{w.userData.police={car,type:'tire',health:30};car.parts.push(w);});
+    const driver=new THREE.Mesh(new THREE.SphereGeometry(.3,16,12),game.material('#b1967d'));driver.position.set(-.55,1.66,-.52);driver.userData.police={car,type:'driver',health:50};car.group.add(driver);car.parts.push(driver);
     const lightbar=game.box(1.7,.15,.3,'#253343',0,2.05,.1,{parent:car.group});
     car.lights=[game.box(.7,.17,.31,'#6e1722',-.45,2.13,.1,{parent:car.group}),game.box(.7,.17,.31,'#123c9b',.45,2.13,.1,{parent:car.group})];
     car.lights.forEach((m,i)=>{m.material.emissive.set(i?'#086bff':'#ff1831');m.material.emissiveIntensity=2;});
@@ -56,7 +56,7 @@ export function policeRayHit(game,origin,direction,maxDistance,damage){
   const hits=raycaster.intersectObjects(game.pursuit.cops.filter(c=>!c.disabled).flatMap(c=>c.parts),false);
   if(!hits.length)return null;
   const hit=hits[0],part=hit.object.userData.police;part.health-=damage;
-  if(part.health<=0){part.car.disabled=true;game.pursuit.disabled++;hit.object.material.color.set('#222222');game.awardXP(0,25);game.voices.say('kill-0-1','Draco: That lane is clear. Who’s next?',0);}
+  if(part.health<=0){part.car.disabled=true;game.pursuit.disabled++;hit.object.material.color.set('#222222');game.awardXP(0,25);game.voices.say('kill-0-1','Draco: I got him. Check the right side.',0);}
   return hit;
 }
 function steerTo(game,target,dt,speed=8){

@@ -7,7 +7,7 @@ export function buildHair(game, person, style) {
   person.body.add(hair);
   const dark = '#171518';
   game.box(.46, .16, .44, dark, 0, 2.12, 0, { parent: hair });
-  const count = style === 0 ? 15 : 10;
+  const count = style === 0 ? 22 : 16;
   for (let i = 0; i < count; i++) {
     const angle = .35 + i / (count - 1) * (Math.PI * 2 - .7);
     const length = style === 0 ? .5 + (i % 3) * .055 : .65 + (i % 4) * .045;
@@ -16,7 +16,7 @@ export function buildHair(game, person, style) {
     pivot.rotation.z = Math.sin(angle) * (style === 0 ? .1 : .3);
     hair.add(pivot);
     for (let j = 0; j < 4; j++) {
-      const strand = game.cylinder(style === 0 ? .045 : .055, length / 4 + .02, style === 1 && j === 3 ? '#71518c' : dark, Math.sin(j * .9 + i) * .025, -j * length / 4, 0, pivot);
+      const strand = game.cylinder(style === 0 ? .03 : .035, length / 4 + .02, style === 1 && j === 3 ? '#71518c' : dark, Math.sin(j * .9 + i) * .025, -j * length / 4, 0, pivot);
       strand.rotation.z = Math.sin(i + j) * .12;
     }
   }

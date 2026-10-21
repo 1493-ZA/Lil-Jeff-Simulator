@@ -45,3 +45,12 @@ export function reload(state) {
 export function needsReload(state) {
   return state.spares > 0 && state.rounds.some(rounds => rounds < WEAPONS[state.id].capacity);
 }
+
+export const ENEMY_HEALTH=Object.freeze({street:50,static:90,ambush:40,claimBase:45,claimStep:5,switchback:80,vex:100});
+export const HIT_MULTIPLIERS=Object.freeze({head:2.5,chest:1.35,abdomen:1,pelvis:.85,leg:.65,foot:.5});
+export function hitLocation(height){
+  return height>=1.68?'head':height>=1.12?'chest':height>=.82?'abdomen':height>=.62?'pelvis':height>=.2?'leg':'foot';
+}
+export function woundDamage(baseDamage,location,distanceFactor=1,support=false){
+  return baseDamage*(HIT_MULTIPLIERS[location]||1)*distanceFactor*(support?.18:1);
+}

@@ -6,6 +6,7 @@ import { OBJECTIVES, RAP_PATTERN, RAP_LINES, BEAT_SECONDS, RAP_PASS, DRIVE_ROUTE
 
 import { CLAIM_POINTS, livingOpps, missionOneCleared, waveCount, beginClaimBlock, updateClaimBlock, clearClaimProps } from './campaign.js';
 import { clothingMap } from './surfaces.js';
+import { ENEMY_HEALTH, hitLocation, woundDamage } from './combat.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { toggleCover, updateCover, assistAim } from './cover.js';
 import { CrewVoices, killDialogue, combatBarks } from './dialogue.js';
@@ -88,7 +89,7 @@ export class Game {
     this.renderer.setAnimationLoop(() => this.tick());
   }
 
-  material(color, extra = {}) { const cloth=['#75604e','#4c7470','#67566f','#303a43','#3c444c'].includes(color);return new THREE.MeshStandardMaterial({ color, roughness: cloth?.94:.72,...(cloth?{map:clothingMap(),bumpMap:clothingMap(),bumpScale:.025}:{}), ...extra }); }
+  material(color, extra = {}) { const cloth=['#3c4043','#354d49','#353342','#303a43','#3c444c'].includes(color);return new THREE.MeshStandardMaterial({ color, roughness: cloth?.94:.72,...(cloth?{map:clothingMap(),bumpMap:clothingMap(),bumpScale:.025}:{}), ...extra }); }
 
   box(width, height, depth, color, x, y, z, { solid = false, parent = this.scene, ...extra } = {}) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), this.material(color, extra));
@@ -133,7 +134,7 @@ export class Game {
   buildPerson(color, enemy = false, identity = -1) {
     const group = new THREE.Group(), body = new THREE.Group();
     group.add(body);
-    const cloth=enemy?'#3c444c':identity===0?'#75604e':identity===1?'#4c7470':'#67566f';
+    const cloth=enemy?'#3c444c':identity===0?'#3c4043':identity===1?'#354d49':'#353342';
     const skin=enemy?'#886a58':identity===1?'#9b765b':'#79513d';
     const round=(x,y,z,sx,sy,sz,tint,parent=body)=>{
       const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,24,16),this.material(tint));
@@ -144,14 +145,15 @@ export class Game {
     round(0,.8,.02,.29,.17,.2,'#30363d');
     round(0,1.57,.08,.25,.15,.2,cloth);
     this.box(.016,.56,.025,'#a29887',0,1.22,-.225,{parent:body});
-    round(0,1.9,0,.21,.25,.2,skin);
-    round(-.215,1.91,0,.045,.07,.035,skin);round(.215,1.91,0,.045,.07,.035,skin);
+    this.cylinder(.085,.18,skin,0,1.67,0,body);
+    round(0,1.9,0,.16,.15,.18,skin);
+    round(-.165,1.91,0,.035,.05,.03,skin);round(.165,1.91,0,.035,.05,.03,skin);
     if(enemy || identity===1)this.box(.46,.18,.45,enemy?'#273039':'#253b3a',0,2.12,0,{parent:body});
     if(enemy)this.box(.32,.075,.03,'#cc9c88',0,1.94,-.2,{parent:body});
     else {
       for(const x of [-.075,.075]) {
-        round(x,1.95,-.178,.029,.015,.012,'#c8c3b1');
-        round(x,1.95,-.194,.013,.018,.01,'#242325');
+        round(x,1.95,-.166,.024,.012,.009,'#ada79b');
+        round(x,1.95,-.176,.009,.012,.008,'#242325');
         this.box(.065,.018,.02,'#372d28',x,1.993,-.18,{parent:body});
       }
       round(0,1.89,-.205,.04,.048,.04,skin);
@@ -198,9 +200,9 @@ export class Game {
   }
 
   spawnEnemy(x, z) {
-    const enemy = { ...this.buildPerson('#52636a', true), health: 85, cooldown: 1.5, flashTime: 0, home: new THREE.Vector3(x, 0, z) };
+    const enemy = { ...this.buildPerson('#52636a', true), health: ENEMY_HEALTH.street, cooldown: 1.5, flashTime: 0, home: new THREE.Vector3(x, 0, z) };
     enemy.group.position.copy(enemy.home);
-    enemy.group.traverse(object => { if (object.isMesh) object.userData.enemy = enemy; });
+    enemy.group.traverse(object=>{if(!object.isMesh)return;object.userData.enemy=enemy;let node=object;while(node&&node!==enemy.group){if(node.name.startsWith('weapon-')){object.userData.weaponPart=true;break;}node=node.parent;}});
     this.enemies.push(enemy);
     return enemy;
   }
@@ -209,7 +211,7 @@ export class Game {
     [[-4, -4], [4, -10], [-3, -17], [5, -24], [-4, -34], [2, -45]].forEach(([x,z],i)=>{
       const enemy=this.spawnEnemy(x,z);
       if(i===3) {
-        enemy.special=true; enemy.alias='Static';enemy.health=150;
+        enemy.special=true; enemy.alias='Static';enemy.health=ENEMY_HEALTH.static;
         const badge=this.label('STATIC / SPECIAL OPP','#ffb16f',2.8,x,3,z);enemy.badge=badge;
         enemy.group.userData.torso.material.color.set('#7b3f3c');
       }
@@ -275,7 +277,7 @@ export class Game {
     });
     window.addEventListener('mouseup', event => {
       if (event.button === 0) this.shooting = false;
-      if (event.button === 2) this.aiming = false;
+      if (event.button === 2){this.aiming = false;this.aimSession=null;}
     });
     window.addEventListener('contextmenu', event => event.preventDefault());
   }
@@ -324,7 +326,7 @@ export class Game {
     this.voices.stop();clearPursuit(this);this.defeatedNames=[];this.nextTaunt=5;this.tauntIndex=0;this.music.setScene('street');this.music.stop();this.lookHold=0;this.narrationDurations.clear();
     clearClaimProps(this);this.level=1;this.claim=null;this.carWork=null;this.missionOneKills=null;
     this.running = this.started = this.finished = this.shooting = this.aiming = this.driving = false;
-    this.keys.clear();
+    this.keys.clear();this.aimSession=null;
     this.active = this.stage = this.progress = this.elapsed = this.shots = this.hits = this.kills = 0;
     this.yaw = 0; this.pitch = -.13;
     this.rap = null; this.rapScore = 0;
@@ -415,7 +417,7 @@ export class Game {
     const p = this.player;
     const direction = this.moveDirection();
     const sprinting = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
-    if(sprinting)p.crouched=false;
+    if(sprinting){p.crouched=false;p.coverBox=null;}
     const speed = p.crouched?2.1:this.aiming ? 3.3 : sprinting ? 8 : 5.1;
     const sliding = p.slide > 0;
     this.moveWithCollision(p, (sliding ? p.slideDirection : direction).clone().multiplyScalar((sliding ? 11 * (.5 + p.slide) : speed) * dt));
@@ -471,7 +473,7 @@ export class Game {
     this.raycaster.set(origin, direction);
     const policeHit=policeRayHit(this,origin,direction,distance,weapon.damage);
     if(policeHit){distance=policeHit.distance;this.hitTime=.14;this.hits++;}
-    const hits = this.raycaster.intersectObjects(this.enemies.filter(e => e.health > 0).map(e => e.group), true);
+    const hits = this.raycaster.intersectObjects(this.enemies.filter(e => e.health > 0).map(e => e.group), true).filter(hit=>!hit.object.userData.weaponPart);
     if (hits.length && hits[0].distance < distance) {
       distance = hits[0].distance;
       victim = hits[0].object.userData.enemy;
@@ -485,7 +487,10 @@ export class Game {
     character.recoil = Math.min(character.recoil + weapon.kick, .24);
     if (character === this.player) { this.shots++; this.sound(weapon.id); }
     if (victim) {
-      victim.health = Math.max(0, victim.health - weapon.damage * (support ? .18 : 1) * clamp(weapon.range / Math.max(1, distance), .4, 1));
+      const location=hitLocation(victim.group.worldToLocal(hits[0].point.clone()).y);
+      const damage=woundDamage(weapon.damage,location,clamp(weapon.range/Math.max(1,distance),.4,1),support);
+      victim.health=Math.max(0,victim.health-damage);
+      if(character===this.player)this.lastWound={location,damage,enemy:victim};
       if (character === this.player) { this.hits++; this.hitTime = .14; }
       if (victim.health <= 0) this.defeatEnemy(victim,character.index);
     }
@@ -547,7 +552,7 @@ export class Game {
       const distance = target.group.position.distanceTo(enemy.group.position);
       if (distance > 26 || this.rap || this.driving) continue;
       const origin = enemy.group.position.clone().add(new THREE.Vector3(0, 1.5, 0));
-      const targetHeight=target.crouched?(target.peek?Math.abs(target.body.position.x)<.3?1.6:1.3:.7):1.35;
+      const targetHeight=target.peek?Math.abs(target.body.position.x)<.3?1.95:1.65:target.crouched?1.1:1.35;
       const destination = target.group.position.clone().add(new THREE.Vector3(target.body.position.x,targetHeight,0).applyAxisAngle(UP,target.group.rotation.y));
       const direction = destination.clone().sub(origin);
       enemy.group.rotation.y += angleDelta(enemy.group.rotation.y, Math.atan2(-direction.x, -direction.z)) * Math.min(1, dt * 4);
@@ -611,7 +616,7 @@ export class Game {
     if(this.level===3){launchChase(this);$('#drive-panel').classList.remove('hidden');return;}
     this.gunner=this.active!==2;
     this.driving=true;this.shooting=this.aiming=false;this.keys.clear();
-    this.characters.forEach(p=>{p.arms.position.x=0;p.crouched=false;p.peek=false;p.body.scale.y=1;p.body.position.x=0;});
+    this.characters.forEach(p=>{p.arms.position.set(0,1.5,0);p.crouched=false;p.peek=false;p.body.scale.y=1;p.body.position.x=0;});
     $('#drive-panel').classList.remove('hidden');
     this.toast('Z78: Engine’s live. Hop in. 1 Draco, 2 doom, 3 wheel.');
   }
@@ -652,7 +657,7 @@ export class Game {
   startAmbush() {
     this.ambushStarted=true;
     for(const [x,z] of [[-5,-54],[-5.5,-64],[5.5,-71]]) {
-      const enemy=this.spawnEnemy(x,z);enemy.driveBy=true;enemy.health=65;
+      const enemy=this.spawnEnemy(x,z);enemy.driveBy=true;enemy.health=ENEMY_HEALTH.ambush;
       enemy.badge=this.label('ARMED OPP','#ffb891',2.3,x,3,z);
     }
     this.toast('Z78: They posted up ahead. Cover us—I got the wheel.');
@@ -866,7 +871,7 @@ export class Game {
     const p = this.driving && !this.gunner ? this.car.group.position : this.player.group.position;
     const direction = new THREE.Vector3(-Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.cos(this.yaw) * Math.cos(this.pitch));
     const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
-    const focus = p.clone().add(new THREE.Vector3(0,this.level===3&&this.driving?1.6:this.gunner?1.4:this.player.slide>0?.95:this.player.crouched?this.player.peek?1.25:.9:1.7,0));
+    const focus = p.clone().add(new THREE.Vector3(0,this.level===3&&this.driving?1.6:this.gunner?1.4:this.player.slide>0?.95:this.player.crouched?this.player.peek?1.7:1.4:1.7,0));
     const distance = this.gunner ? this.aiming?2.6:3.8 : this.driving ? 8.5 : this.aiming ? 3.1 : 5.6;
     const offset = direction.clone().multiplyScalar(-distance).addScaledVector(right, this.aiming ? .65 : 1.05);
     if(this.gunner) {
@@ -916,7 +921,7 @@ export class Game {
     $('#enemy-remaining').textContent=`OPPS LEFT ${livingOpps(this)}`;
     $('#chapter-label').textContent=this.level===2?'MISSION 02':'MISSION 01';
     $('#level-title').textContent=this.level===2?'CLAIM THE BLOCK':'ENTER CHIRAQ';
-    $('#stance-status').textContent=this.driving||this.rap?'':this.player.crouched?'IN COVER · RMB PEEK · BACK / C LEAVE':'C CROUCH · SHIFT + C SLIDE · RMB ASSIST';
+    $('#stance-status').textContent=this.driving||this.rap?'':this.player.crouched?'IN COVER · RMB PEEK · BACK / C LEAVE':this.player.coverBox?'BEHIND COVER · C DUCK · RMB PEEK':'C CROUCH · SHIFT + C SLIDE · RMB ASSIST';
     $('#objective-progress').style.width = `${Math.min(1,progress)*100}%`;
     $('#objective-count').textContent = this.stage === 0 ? `DRACO ${this.characters[0].kills}/${target} · OR SPECIAL OPP ${this.characters[0].specialKills>0?'DOWN':'MARKED'}` : this.stage === 1 ? `HIT ${RAP_PASS} OF 8 BEATS · J / K / L` : `ROUTE ${this.car.gate}/3 · AMBUSH ${this.driveByKills}/2`;
     if(this.level===1&&this.stage===2){

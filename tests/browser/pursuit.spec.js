@@ -82,14 +82,15 @@ test('locally bundled combat voices decode and music defaults are louder with a 
  const errors=[];page.on('response',r=>{if(r.url().includes('/audio/')&&r.status()>=400)errors.push(r.url());});
  await page.goto('/?test=1&quality=low');await page.waitForFunction(()=>!!window.__game);await page.locator('#start').click();
  expect(await page.evaluate(()=>__game.music.volume)).toBeGreaterThan(.6);
- await page.evaluate(async()=>{await __game.voices.say('taunt-0','Opp: Your whole crew is washed!',3,{force:true});});
+ await page.waitForFunction(()=>__game.music.samples.size===6);
+ await page.evaluate(async()=>{await __game.voices.say('taunt-0','Opp: I see you behind that car!',3,{force:true});});
  await page.waitForFunction(()=>__game.voices.buffers.has('taunt-0'));
- await expect(page.locator('#bark-text')).toContainText('washed');
+ await expect(page.locator('#bark-text')).toContainText('behind that car');
  await page.evaluate(()=>{const g=__game;g.enemies.forEach(e=>e.cooldown=Infinity);for(let i=0;i<3;i++){const e=g.spawnEnemy(0,-6);e.alias=i===0?'Static':null;g.defeatEnemy(e,0);}});
  expect(await page.evaluate(()=>__game.player.onFireUntil>__game.elapsed)).toBe(true);
  expect(await page.evaluate(()=>__game.defeatedNames)).toContainEqual({name:'Static',killer:0});
  const energy=await page.evaluate(async()=>{
    const g=__game,analyzer=g.audio.createAnalyser();g.music.compressor.connect(analyzer);const sample=new Float32Array(analyzer.fftSize);
-   await new Promise(r=>setTimeout(r,500));analyzer.getFloatTimeDomainData(sample);g.music.compressor.disconnect(analyzer);return sample.reduce((s,v)=>s+v*v,0)/sample.length;
+   let peak=0;for(let i=0;i<20;i++){await new Promise(r=>setTimeout(r,100));analyzer.getFloatTimeDomainData(sample);peak=Math.max(peak,sample.reduce((s,v)=>s+v*v,0)/sample.length);}g.music.compressor.disconnect(analyzer);if(peak===0)console.log({running:g.running,context:g.audio.state,active:g.music.active,muted:g.music.muted,ducked:g.music.ducked,gain:g.music.bus.gain.value,nodes:g.music.nodes.size,step:g.music.step});return peak;
  });expect(energy).toBeGreaterThan(.000001);expect(errors).toEqual([]);
 });

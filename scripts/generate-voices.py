@@ -12,8 +12,8 @@ for name in ['rms','kal16','awb']:
     library=c.CDLL(f'libflite_cmu_us_{name}.so.1',mode=c.RTLD_GLOBAL)
     register=getattr(library,f'register_cmu_us_{name}');register.argtypes=[c.c_char_p];register.restype=c.c_void_p
     voices.append(register(None))
-kills=[['Stay down. Crew, keep moving.','That lane is clear. Who is next?','Do not fold. Watch the corner.'],['That is another bar for the booth.','He talked loud. Now the beat talks.','Crew stays up. Keep it pushing.'],['Lane is clear. I got the wheel.','He is not catching this ride.','Eyes up. We still moving.']]
-taunts=['Your whole crew is washed!','Draco, that aim is trash!','Doom, nobody wants that weak verse!','Z78, you drive like you scared!','This is not your block! Get lost!']
+kills=[['He is down. Watch the alley.','I got him. Check the right side.','Keep moving. I will cover you.'],['He is down. You both good?','Watch that corner. Stay sharp.','I got you. Stay behind me.'],['Clear on my side. Let us move.','Stay close. Do not get caught out.','Watch behind us. I got the front.']]
+taunts=['I see you behind that car!','Draco! You are not walking out of here!','Get around them! Do not let them through!','Stay on them! Do not let them leave!','They are on the corner! Push up!']
 raps=[['Static went quiet, we cleared that lane.','Vex lost the block, now we own the stage.','Blue lights behind, put the night on tape.'],['Doom in the pocket, let the kick drum burst.','Switchback fell, put his name in a verse.','New flow, beat drop, watch me switch gears.'],['One hand steering, crew riding with me.','Vex in the rear view, blue lights leave.','Z brought us home, now the whole crew eats.']]
 clips=[(f'kill-{i}-{j}',text,i,False) for i,lines in enumerate(kills) for j,text in enumerate(lines)]
 clips += [(f'taunt-{i}',text,1,False) for i,text in enumerate(taunts)]
@@ -25,7 +25,7 @@ with tempfile.TemporaryDirectory() as tmp:
         wave=lib.flite_text_to_wave(text.encode(),voices[index]);wav=Path(tmp)/'line.wav'
         lib.cst_wave_save_riff(wave,str(wav).encode());lib.delete_wave(wave)
         duration=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0',str(wav)]))
-        tempo=max(.7,duration/(1.7 if rap else 2.3))
+        tempo=max(.7,duration/1.7) if rap else 1.05
         filters=[]
         while tempo>2:filters.append('atempo=2');tempo/=2
         filters.extend([f'atempo={tempo}', 'highpass=f=100','equalizer=f=1800:t=q:w=1:g=3','acompressor=threshold=0.15:ratio=3:makeup=2','loudnorm=I=-15:TP=-1:LRA=7'])

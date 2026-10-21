@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { assistAim } from './cover.js';
 import { needsReload, WEAPONS } from './combat.js';
 
 const UP=new THREE.Vector3(0,1,0);
@@ -15,6 +16,7 @@ export function updateVehicleCrew(game,dt) {
     if(p===game.player) {
       p.group.rotation.y+=Math.atan2(Math.sin(game.yaw-p.group.rotation.y),Math.cos(game.yaw-p.group.rotation.y))*Math.min(1,dt*10);
       p.arms.rotation.x=THREE.MathUtils.damp(p.arms.rotation.x,game.pitch+p.recoil+(p.draw>0||p.reloading>0?-.85:0),12,dt);
+      assistAim(game,p,dt);
       if(game.shooting&&p.draw<=0&&p.reloading<=0&&p.cooldown<=0)game.shoot(p);
       continue;
     }

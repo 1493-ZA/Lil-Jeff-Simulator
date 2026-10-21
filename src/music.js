@@ -1,7 +1,7 @@
 // Original synthesized drill-inspired instrumental: no streamed or sampled songs.
 export class DrillMusic {
   constructor() {
-    this.volume=.72;this.scene='street';this.muted=false;this.step=0;this.active=false;this.ducked=false;this.nodes=new Set();
+    this.samples=new Map();this.volume=.72;this.scene='street';this.muted=false;this.step=0;this.active=false;this.ducked=false;this.nodes=new Set();
     try { const saved=JSON.parse(localStorage.getItem('lil-jeff-music-v2'));if(Number.isFinite(saved?.volume))this.volume=Math.max(0,Math.min(1,saved.volume));this.muted=saved?.muted===true; } catch { /* Defaults work without storage. */ }
   }
   setScene(name){
@@ -27,6 +27,7 @@ export class DrillMusic {
       const samples=this.noise.getChannelData(0);let seed=615;
       for(let i=0;i<samples.length;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;samples[i]=seed/2147483648-1;}
     }
+    if(!this.samplesLoading)this.samplesLoading=Promise.all(['kick','snare','clap','hat','openhat','rim'].map(async name=>{try{const response=await fetch((import.meta.env?.BASE_URL||'/')+'audio/drums/'+name+'.wav');if(response.ok)this.samples.set(name,await context.decodeAudioData(await response.arrayBuffer()));}catch{/* Procedural fallback remains available. */}}));
     this.active=true;this.nextTime=context.currentTime+.04;this.applyGain();
     this.timer=setInterval(()=>this.schedule(),25);this.schedule();
   }
@@ -48,6 +49,21 @@ export class DrillMusic {
     gain.gain.setValueAtTime(level,time);gain.gain.exponentialRampToValueAtTime(.0001,time+duration);
     source.connect(filter).connect(gain).connect(this.bus);this.track(source);source.start(time);source.stop(time+duration);
   }
+  drum(name,time,level){
+    const buffer=this.samples.get(name);if(!buffer){this.hiss(time,name==='hat'?.03:.1,level*.2,name==='hat'?7000:1600);return;}
+    const source=this.context.createBufferSource(),gain=this.context.createGain();source.buffer=buffer;gain.gain.value=level;source.connect(gain).connect(this.bus);this.track(source);source.start(time);
+  }
+  piano(time,note){
+    this.tone(time,note,.95,.12,'sine');this.tone(time,note*2.004,.28,.055,'sine');this.tone(time,note*3.995,.12,.018,'sine');
+    this.tone(time+.27,note,.6,.025,'sine');
+  }
+  bass(time,root,end,duration){
+    const osc=this.context.createOscillator(),gain=this.context.createGain(),drive=this.context.createWaveShaper();
+    const curve=new Float32Array(1024);for(let i=0;i<curve.length;i++)curve[i]=Math.tanh((i/511.5-1)*3);
+    drive.curve=curve;osc.frequency.setValueAtTime(root,time);osc.frequency.exponentialRampToValueAtTime(end,time+duration*.7);
+    gain.gain.setValueAtTime(.0001,time);gain.gain.exponentialRampToValueAtTime(.43,time+.009);gain.gain.exponentialRampToValueAtTime(.0001,time+duration);
+    osc.connect(drive).connect(gain).connect(this.bus);this.track(osc);osc.start(time);osc.stop(time+duration+.01);
+  }
   schedule() {
     if(!this.active || this.context.state!=='running')return;
     if(this.nextTime<this.context.currentTime)this.nextTime=this.context.currentTime+.02;
@@ -56,21 +72,20 @@ export class DrillMusic {
       const drop=bar===7&&s>=12;
       if(this.scene==='chase'&&s%8===0)this.tone(t,bar%2?980:620,.6,.065,'sine',bar%2?620:980);
       // Half-time Chicago pocket, swung hats, syncopated kicks, and melodic 808 glides.
-      const kickPatterns=[[0,3,6,11,14],[0,5,7,10,15],[0,2,6,11,13],[0,6,10,14]];
+      const kickPatterns=[[0,6,10,11,14],[0,3,7,10,15],[0,2,6,12,14],[0,6,9,14]];
       if(!drop&&kickPatterns[bar%4].includes(s)){
-        this.tone(t,165,.14,.9,'sine',43);
+        this.drum('kick',t,.92);
         const roots=[36.71,36.71,43.65,32.70,36.71,41.20,43.65,32.70],root=roots[bar];
-        this.tone(t,root,s===14?.3:.48,.65,'sine',s===11?root*1.5:root);
-        this.tone(t,root*2,.25,.12,'triangle',s===11?root*3:root*2);
+        this.bass(t,root,s===11&&bar%2?root*1.5:root,s===14?.24:.38);
       }
-      if(!drop&&s===8){this.hiss(t,.13,.5,1100);this.hiss(t+.014,.08,.22,2300);this.tone(t,190,.075,.2,'triangle',95);}
-      if(!drop&&(s%2===0||[3,7,11,15].includes(s))){const swing=s%2?.018:0;this.hiss(t+swing,.035,s%4===0?.17:.09,7200);}
-      if(!drop&&((s===14&&bar%2===1)||s===7)){for(let i=1;i<=3;i++)this.hiss(t+i*.027,.02,.08-i*.012,8200);}
+      if(!drop&&s===8){this.drum('snare',t,.64);this.drum('clap',t+.009,.46);}if(!drop&&s===15&&bar%2)this.drum('rim',t,.17);
+      if(!drop&&(s%2===0||[3,7,11,15].includes(s))){const swing=s%2?.018:0;this.drum('hat',t+swing,s%4===0?.24:.13);}
+      if(!drop&&((s===14&&bar%2===1)||s===7)){for(let i=1;i<=3;i++)this.drum('hat',t+i*.034,.13-i*.022);}
       if(!drop&&[0,6,10].includes(s)){
         const melody=[[293.66,349.23,440],[293.66,261.63,220],[349.23,440,523.25],[261.63,220,196]][bar%4],note=melody[[0,6,10].indexOf(s)];
-        this.tone(t,note,.4,.11,'triangle');this.tone(t+.2,note*.5,.5,.045,'sine');this.tone(t+.3,note,.35,.025,'sine');
+        this.piano(t,note*.5);
       }
-      if(s===0&&bar%4===0)this.hiss(t,.22,.13,5500);
+      if(!drop&&s===6)this.drum('openhat',t,.13);
       if(drop&&s===15)this.tone(t,100,.08,.13,'sawtooth',400);
       this.step++;this.nextTime+=60/148/4;
     }

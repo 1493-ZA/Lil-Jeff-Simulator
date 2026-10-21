@@ -36,15 +36,25 @@ export function updateCompanions(game,dt) {
   for(const p of game.characters) {
     if(p===game.player || p.health<=0) continue;
     const pos=p.group.position;
+    if(!p.aiGoal)p.aiWaypoint=null;
     const enemies=game.enemies.filter(e=>e.health>0 && !e.driveBy);
     const nearest=enemies.sort((a,b)=>a.group.position.distanceToSquared(pos)-b.group.position.distanceToSquared(pos))[0];
     const hurt=p.health<45;
     if(p.health<65 && game.elapsed-p.lastHitAt>3) p.health=Math.min(65,p.health+dt*3);
     p.aiPlanCooldown-=dt;
     const leader=game.player.group.position;
-    const holdCover=game.level===2&&p.coverAnchor&&leader.distanceTo(p.coverAnchor)<10&&enemies.some(e=>e.health>0);
-    if(holdCover){p.aiGoal=p.coverAnchor.clone();p.aiPlanCooldown=.8;}
-    else p.coverAnchor=null;
+    const waveCover=game.level===2&&nearest?game.claimColliders?.slice(game.claim.point*3,game.claim.point*3+3):null;
+    const assigned=waveCover?.[p.index];
+    let coverGoal=null;
+    if(assigned){
+      const center=assigned.getCenter(new THREE.Vector3());
+      const away=center.clone().sub(nearest.group.position).setY(0).normalize();
+      const goal=center.clone().addScaledVector(away,1.7).setY(0);
+      if(center.distanceTo(leader)<27&&safeFooting(game,goal))coverGoal=goal;
+    }
+    const holdCover=Boolean(coverGoal);
+    if(holdCover){p.aiGoal=coverGoal;p.coverAnchor=coverGoal.clone();p.coverBox=assigned;p.aiPlanCooldown=.8;}
+    else{p.coverAnchor=null;p.coverBox=null;}
     if(!holdCover&&(p.aiPlanCooldown<=0 || !p.aiGoal || p.aiGoal.distanceTo(leader)>12)) {
       const side=p.index%2 ? -1 : 1;
       const formation=new THREE.Vector3(side*2.3,0,3.5+(p.index===2?1:0)).applyAxisAngle(new THREE.Vector3(0,1,0),game.player.group.rotation.y).add(leader);
@@ -68,7 +78,11 @@ export function updateCompanions(game,dt) {
       p.aiGoal=best || pos.clone();
       p.aiPlanCooldown=.8;
     }
-    const waypoint=companionWaypoint(game,pos,p.aiGoal);
+    // Finish a chosen corner before choosing another, avoiding oscillation
+    // between the front and back corners of a barricade.
+    if(p.aiWaypoint&&(p.aiWaypoint.distanceTo(pos)<.2||p.aiWaypoint.distanceTo(p.aiGoal)>12))p.aiWaypoint=null;
+    const waypoint=p.aiWaypoint||companionWaypoint(game,pos,p.aiGoal);
+    if(waypoint!==p.aiGoal)p.aiWaypoint=waypoint;
     const desired=waypoint.clone().sub(pos).setY(0);
     let moving=false;
     if(desired.length()>(waypoint===p.aiGoal ? .65 : .1) && p.grounded) {
@@ -82,19 +96,23 @@ export function updateCompanions(game,dt) {
         break;
       }
     }
-    p.aiState=hurt?'RETREATING':moving?'FOLLOWING':'IN COVER';
-    const nearCover=game.colliders.some(box=>box.max.y>.8&&box.max.y<1.4&&box.distanceToPoint(pos)<2.5);
-    p.crouched=game.level===2&&!moving&&nearCover;
-    p.peek=Boolean(p.crouched&&nearest&&!hurt&&p.cooldown<=0&&p.draw<=0&&p.reloading<=0);
+    p.aiState=moving?holdCover?'TAKING COVER':'FOLLOWING':holdCover?'IN COVER':hurt?'RETREATING':'FOLLOWING';
+    const nearCover=game.colliders.some(box=>box.max.y>.8&&box.max.y<1.9&&box.distanceToPoint(pos)<2.5);
+    p.crouched=game.level===2&&!moving&&nearCover&&hurt;
+    p.peek=Boolean(nearCover&&!moving&&nearest&&!hurt&&p.cooldown<=0&&p.draw<=0&&p.reloading<=0);
     posture(p,dt,{crouched:p.crouched,peek:p.peek,moving,time:game.elapsed});
     p.recoil=THREE.MathUtils.damp(p.recoil,0,7,dt);
-    if(!nearest || hurt || pos.distanceTo(nearest.group.position)>19 || p.cooldown>0 || p.draw>0 || p.reloading>0)continue;
-    const from=pos.clone().add(new THREE.Vector3(0,1.5,0));
+    if(!nearest || hurt || pos.distanceTo(nearest.group.position)>19)continue;
+    const from=pos.clone().add(new THREE.Vector3(0,p.body.position.y+p.arms.position.y,0));
     const to=nearest.group.position.clone().add(new THREE.Vector3(0,1.3,0));
-    if(!game.hasLineOfSight(from,to))continue;
-    const direction=to.sub(from);
+    const direction=to.clone().sub(from);
     p.group.rotation.y+=angleDelta(p.group.rotation.y,Math.atan2(-direction.x,-direction.z))*Math.min(1,dt*8);
     p.arms.rotation.x=Math.atan2(direction.y,Math.hypot(direction.x,direction.z))+p.recoil;
+    if(p.cooldown>0||p.draw>0||p.reloading>0)continue;
+    const desiredYaw=Math.atan2(-direction.x,-direction.z);
+    if(Math.abs(angleDelta(p.group.rotation.y,desiredYaw))>.16)continue;
+    const muzzle=p.guns[0].muzzle.getWorldPosition(new THREE.Vector3());
+    if(!game.hasLineOfSight(muzzle,to))continue;
     const state=p.loadout[p.slot];
     if(!state.rounds.some(n=>n>0)) {
       if(needsReload(state))p.reloading=WEAPONS[state.id].reload;

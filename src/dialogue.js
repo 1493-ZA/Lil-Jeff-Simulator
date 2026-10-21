@@ -1,6 +1,6 @@
 export const SPECIAL_NAMES=['Static','Switchback','Vex'];
-export const KILL_LINES=[['Stay down. Crew, keep moving.','That lane is clear. Who’s next?','Don’t fold. Watch the corner.'],['That’s another bar for the booth.','He talked loud. Now the beat talks.','Crew stays up. Keep it pushing.'],['Lane’s clear. I got the wheel.','He ain’t catching this ride.','Eyes up. We still moving.']];
-export const TAUNTS=['Your whole crew is washed!','Draco, that aim is trash!','Doom, nobody wants that weak verse!','Z78, you drive like you scared!','This ain’t your block! Get lost!'];
+export const KILL_LINES=[['He’s down. Watch the alley.','I got him. Check the right side.','Keep moving. I’ll cover you.'],['He’s down. You both good?','Watch that corner. Stay sharp.','I got you. Stay behind me.'],['Clear on my side. Let’s move.','Stay close. Don’t get caught out.','Watch behind us. I got the front.']];
+export const TAUNTS=['I see you behind that car!','Draco! You ain’t walking out of here!','Get around them! Don’t let them through!','Stay on them! Don’t let them leave!','They’re on the corner! Push up!'];
 const base=(import.meta.env?.BASE_URL||'/')+'audio/';
 export class CrewVoices{
   constructor(game){this.game=game;this.buffers=new Map();this.playing=new Set();this.next=0;}

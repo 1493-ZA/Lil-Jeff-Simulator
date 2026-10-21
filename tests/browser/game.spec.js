@@ -265,7 +265,7 @@ test('Mission 1 completes only on its last opp and automatically rewards and sta
   });
   await page.waitForFunction(()=>window.__game.level===2);
   await expect(page.locator('#level-title')).toHaveText('CLAIM THE BLOCK');
-  expect(await page.evaluate(()=>window.__game.characters.every(p=>p.health===125&&p.maxHealth===125&&p.crouched))).toBe(true);
+  expect(await page.evaluate(()=>window.__game.characters.every(p=>p.health===125&&p.maxHealth===125&&!p.crouched&&p.body.scale.y===1))).toBe(true);
   expect(await page.evaluate(()=>window.__game.finished)).toBe(false);
   expect(await page.evaluate(()=>window.__game.car.group.visible)).toBe(false);
   await page.screenshot({path:'test-results/claim-the-block-start.png'});
@@ -541,7 +541,8 @@ test('ducking behind real cover blocks incoming and outgoing shots; peeking and 
     g.characters.slice(1).forEach(p=>p.cooldown=Infinity);
     const p=g.player;p.draw=0;p.group.rotation.y=0;g.yaw=0;g.pitch=-.04;
   });
-  await page.waitForFunction(()=>window.__game.player.crouched&&window.__game.player.body.scale.y===1&&window.__game.player.body.position.y<-.65);
+  await page.keyboard.press('KeyC');
+  await page.waitForFunction(()=>window.__game.player.crouched&&window.__game.player.body.scale.y===1&&window.__game.player.body.position.y<-.29);
   const before=await page.evaluate(()=>window.__game.shots);
   await page.mouse.down();await page.waitForFunction(n=>window.__game.shots>n+1,before);await page.mouse.up();
   expect(await page.evaluate(()=>window.__coverTarget.health)).toBe(200);
@@ -558,7 +559,7 @@ test('ducking behind real cover blocks incoming and outgoing shots; peeking and 
   await page.mouse.down();await page.waitForFunction(()=>window.__coverTarget.health<200);await page.mouse.up();
   await page.keyboard.down('KeyX');await page.waitForFunction(()=>window.__game.player.body.position.x>.55&&window.__game.player.body.position.y<-.2);
   await page.waitForFunction(()=>{
-    const g=window.__game;g.scene.updateMatrixWorld(true);const from=g.player.guns[0].muzzle.getWorldPosition(g.player.group.position.clone());const to=window.__coverTarget.group.position.clone();to.y+=1.2;return g.player.body.position.y<-.65&&g.hasLineOfSight(from,to);
+    const g=window.__game;g.scene.updateMatrixWorld(true);const from=g.player.guns[0].muzzle.getWorldPosition(g.player.group.position.clone());const to=window.__coverTarget.group.position.clone();to.y+=1.2;return g.player.body.position.y<-.29&&g.hasLineOfSight(from,to);
   });
   await page.screenshot({path:'test-results/claim-cover-peek.png'});
   await page.keyboard.up('KeyX');
@@ -571,7 +572,7 @@ test('ducking behind real cover blocks incoming and outgoing shots; peeking and 
 test('CLAIM THE BLOCK enforces all four gates and role tasks, then automatically starts Mission 3',async({page})=>{
   test.setTimeout(90000);
   await enterClaim(page);
-  expect(await page.evaluate(()=>window.__game.characters.every(p=>p.health===125&&p.maxHealth===125&&p.crouched))).toBe(true);
+  expect(await page.evaluate(()=>window.__game.characters.every(p=>p.health===125&&p.maxHealth===125&&!p.crouched&&p.body.scale.y===1))).toBe(true);
   await clearClaimWave(page);
   expect(await page.evaluate(()=>window.__game.claim.point)).toBe(0);
   await gatherCrew(page);await page.waitForFunction(()=>window.__game.claim.point===1);
@@ -605,6 +606,7 @@ test('CLAIM THE BLOCK enforces all four gates and role tasks, then automatically
 test('crew walks around starting barricades and captures the first Claim checkpoint without teleporting',async({page})=>{
   await enterClaim(page);
   await page.evaluate(()=>window.__game.enemies.forEach(e=>{e.health=0;e.group.visible=false;}));
+  await page.keyboard.press('KeyC');
   await page.keyboard.down('KeyD');
   // Cross the narrow gap at crouch speed and release on a render frame.
   // A single software-rendered frame can advance up to .25 simulation seconds.

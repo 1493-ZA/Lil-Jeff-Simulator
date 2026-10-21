@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { posture } from './cover.js';
+import { findCover, posture } from './cover.js';
 import { beginPursuit } from './pursuit.js';
-import { createLoadout, ROSTER } from './combat.js';
+import { createLoadout, ROSTER, ENEMY_HEALTH } from './combat.js';
 
 export const CLAIM_POINTS = [
   { name:'TAKE THE CORNER', z:-3, cover:12.7, quota:6 },
@@ -36,9 +36,9 @@ function buildClaimProps(game) {
   game.claimProps=[];game.claimColliders=[];game.claimMarkers=[];
   CLAIM_POINTS.forEach((point,i)=>{
     for(const x of [-4,0,4]) {
-      const cover=game.box(1.8,1.2,1.1,'#646862',x,.6,point.cover,{solid:true});
+      const cover=game.box(1.8,1.65,1.1,'#646862',x,.825,point.cover,{solid:true});
       game.claimColliders.push(game.colliders.at(-1));game.claimProps.push(cover);
-      for(const dx of [-.6,0,.6])game.claimProps.push(game.box(.2,.9,.025,'#c5a76b',x+dx,.6,point.cover+.56));
+      for(const dx of [-.6,0,.6])game.claimProps.push(game.box(.2,1.25,.025,'#c5a76b',x+dx,.825,point.cover+.56));
     }
     const ring=new THREE.Mesh(new THREE.RingGeometry(3.6,3.7,48),new THREE.MeshBasicMaterial({color:'#c6edb8',side:THREE.DoubleSide,transparent:true,opacity:.65}));
     ring.rotation.x=-Math.PI/2;ring.position.set(0,.05,point.z);game.scene.add(ring);
@@ -54,10 +54,10 @@ export function spawnClaimWave(game) {
   for(let i=0;i<point.quota;i++) {
     const x=[-6,-2,2,6][i%4],z=point.z-1-Math.floor(i/4)*3;
     const enemy=game.spawnEnemy(x,z);enemy.claimWave=game.claim.point;
-    enemy.health=80+(game.claim.point*5);enemy.cooldown=1.8+i*.12;
-    if(game.claim.point===2&&i===0){enemy.alias='Switchback';enemy.special=true;enemy.health=140;enemy.badge=game.label('SWITCHBACK','#ffae79',3,x,3,z);}
+    enemy.health=ENEMY_HEALTH.claimBase+game.claim.point*ENEMY_HEALTH.claimStep;enemy.cooldown=1.8+i*.12;
+    if(game.claim.point===2&&i===0){enemy.alias='Switchback';enemy.special=true;enemy.health=ENEMY_HEALTH.switchback;enemy.badge=game.label('SWITCHBACK','#ffae79',3,x,3,z);}
     if(game.claim.point===3&&i===point.quota-1){
-      enemy.special=true;enemy.alias='Vex';enemy.health=180;enemy.group.userData.torso.material.color.set('#7b3f3c');
+      enemy.special=true;enemy.alias='Vex';enemy.health=ENEMY_HEALTH.vex;enemy.group.userData.torso.material.color.set('#7b3f3c');
       enemy.badge=game.label('VEX / BLOCK CAPTAIN','#ffae79',3,x,3,z);
     }
   }
@@ -74,10 +74,10 @@ export function beginClaimBlock(game,retry=false) {
     p.maxHealth=125;p.health=125;p.kills=game.missionOneKills?.[i]||0;
     p.loadout=createLoadout(ROSTER[i].primary);p.slot=0;p.guns=p.weaponRigs[0];
     p.group.visible=true;p.group.position.set((i-1)*4,0,14.4);p.group.rotation.set(0,0,0);
-    p.body.position.set(0,-.25,0);p.body.rotation.set(0,0,0);p.body.scale.set(1,1,1);
-    p.legs.forEach(leg=>{leg.visible=true;leg.rotation.x=.45;});
+    p.body.position.set(0,0,0);p.body.rotation.set(0,0,0);p.body.scale.set(1,1,1);
+    p.legs.forEach(leg=>{leg.visible=true;leg.rotation.x=0;});
     if(p.leftArm)p.leftArm.rotation.x=0;
-    p.crouched=true;p.peek=false;p.coverBox=null;posture(p,1);p.slide=0;p.velocityY=0;p.grounded=true;p.reloading=0;p.cooldown=0;p.draw=.5;p.recoil=0;
+    p.crouched=false;p.peek=false;p.coverBox=findCover(game,p);posture(p,1);p.slide=0;p.velocityY=0;p.grounded=true;p.reloading=0;p.cooldown=0;p.draw=.5;p.recoil=0;
     p.coverAnchor=p.group.position.clone();p.aiGoal=null;p.aiPlanCooldown=0;p.lastHitAt=-Infinity;
   });
   game.terminals.forEach(t=>{t.ring.visible=t.marker.visible=false;});
