@@ -6,7 +6,7 @@ export const WEAPONS = Object.freeze({
 });
 
 export const ROSTER = [
-  { name: 'King Draco', tag: 'KD', color: '#ffac65', primary: 'draco', role: 'ENFORCER', description: 'Drop the opps. Lead the score.' },
+  { name: 'King Draco', tag: 'KD', color: '#ffac65', primary: 'draco', role: 'ENFORCER', description: 'Handle the opps. Cover the getaway.' },
   { name: 'Lil doom', tag: 'LD', color: '#76ddd0', primary: 'arp', role: 'LYRICIST', description: 'Take the mic. Stay on beat.' },
   { name: 'Z78', tag: 'Z7', color: '#bca1ff', primary: 'akimbo', role: 'DRIVER', description: 'Take the wheel. Bring us home.' },
 ];

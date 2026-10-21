@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { OBJECTIVES, DRIVE_ROUTE } from './mission.js';
 import { buildCar } from './models.js';
+import { streetMaterial, addSky } from './surfaces.js';
 
 // A fictional Chicago-inspired streetscape. Decorative boxes are instanced to
 // keep the denser neighborhood affordable on integrated graphics.
 export function buildNeighborhood(game) {
   game.scene.background = new THREE.Color('#555c72');
+  addSky(game);
   game.scene.fog = new THREE.FogExp2('#555c72', .008);
   game.scene.add(new THREE.HemisphereLight('#a8b9df', '#483a36', 2.4));
   const sun = new THREE.DirectionalLight('#ffbd8b', 2.6);
@@ -19,7 +21,7 @@ export function buildNeighborhood(game) {
   const batches = new Map();
   function box(w,h,d,color,x,y,z,solid=false,material=null) {
     const key = material ? color + '-brick' : color;
-    if (!batches.has(key)) batches.set(key, { material: material || game.material(color), items: [] });
+    if (!batches.has(key)) batches.set(key, { material: material || game.material(color, ['#2d3744','#415867','#425163'].includes(color)?{roughness:.27,metalness:.3}:{}), items: [] });
     batches.get(key).items.push({w,h,d,x,y,z});
     if (solid) game.colliders.push(new THREE.Box3(new THREE.Vector3(x-w/2,y-h/2,z-d/2),new THREE.Vector3(x+w/2,y+h/2,z+d/2)));
   }
@@ -36,7 +38,7 @@ export function buildNeighborhood(game) {
   brickTexture.wrapS=brickTexture.wrapT=THREE.RepeatWrapping;
   brickTexture.repeat.set(2,2);
   const brick=game.material('#d0b6a4',{map:brickTexture});
-  box(58,.5,108,'#3c414b',0,-.26,-28);
+  box(58,.5,108,'#asphalt',0,-.26,-28,false,streetMaterial());
   box(6,.16,106,'#92918b',-12,.02,-28);
   box(6,.16,106,'#92918b',12,.02,-28);
   box(.2,.25,106,'#c0b4a2',-9,.06,-28);

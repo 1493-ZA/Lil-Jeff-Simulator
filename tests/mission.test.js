@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { combatTarget, createRap, judgeRap, beatTime, RAP_PATTERN, advanceCar } from '../src/mission.js';
+import { combatTarget, combatComplete, createRap, judgeRap, beatTime, RAP_PATTERN, advanceCar } from '../src/mission.js';
 
-test('Draco must have at least three takedowns and lead both other characters', () => {
+test('Draco has a fixed kill count independent of teammates, or can defeat the Special Opp', () => {
   assert.equal(combatTarget([0,0,0]),3);
-  assert.equal(combatTarget([2,4,1]),5);
-  assert.equal(combatTarget([3,0,3]),4);
+  assert.equal(combatTarget([2,40,100]),3);
+  assert.equal(combatComplete({kills:3,specialKills:0}),true);
+  assert.equal(combatComplete({kills:0,specialKills:1}),true);
+  assert.equal(combatComplete({kills:2,specialKills:0}),false);
 });
 
 test('rap rewards timed correct inputs once per note and rejects off-beat spam', () => {

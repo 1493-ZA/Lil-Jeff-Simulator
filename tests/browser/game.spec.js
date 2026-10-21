@@ -31,7 +31,9 @@ test('renders Enter CHIRAQ and supports movement, airborne shooting, slide, swit
   expect(await page.evaluate(() => window.__game.shots)).toBeGreaterThan(0);
   await page.waitForFunction(() => window.__game.player.grounded);
   await page.keyboard.press('KeyC');
-  await page.waitForFunction(() => window.__game.player.slide > .1);
+  await page.waitForFunction(() => window.__game.player.slide > .1 && window.__game.player.legs.every(leg=>leg.rotation.x>1.1));
+  expect(await page.evaluate(()=>window.__game.player.legs.every(leg=>leg.rotation.x>1.1))).toBe(true);
+  expect(await page.evaluate(()=>window.__game.player.body.rotation.x)).toBeGreaterThan(0);
   const fired = await page.evaluate(() => window.__game.shots);
   await page.mouse.down();
   await page.waitForFunction(fired => window.__game.shots > fired && window.__game.player.slide > 0, fired);
@@ -59,7 +61,7 @@ test('renders Enter CHIRAQ and supports movement, airborne shooting, slide, swit
   const oldPosition = await page.evaluate(() => ({ x: window.__game.player.group.position.x, z: window.__game.player.group.position.z }));
   await page.keyboard.press('Digit3');
   await page.waitForFunction(() => window.__game.characters[1].grounded);
-  expect(await page.evaluate(() => ({ x: window.__game.characters[1].group.position.x, z: window.__game.characters[1].group.position.z }))).toEqual(oldPosition);
+  expect(await page.evaluate(old => Math.hypot(window.__game.characters[1].group.position.x-old.x,window.__game.characters[1].group.position.z-old.z),oldPosition)).toBeLessThan(8);
   expect(await page.evaluate(() => window.__game.characters[1].loadout[1].rounds[0])).toBe(30);
   await page.screenshot({ path: 'test-results/chiraq-gameplay.png' });
   await page.keyboard.press('Escape');
@@ -163,6 +165,7 @@ test('personal story requires Draco takedowns, timed rap inputs and actual drivi
   await page.keyboard.press('KeyE');
   expect(await page.evaluate(()=>window.__game.rap)).toBeNull();
   await page.keyboard.press('Digit2');
+  await page.evaluate(()=>window.__game.player.group.position.set(-11,0,-23));
   await page.keyboard.press('KeyE');
   await expect(page.locator('#rap-panel')).toBeVisible();
   // A silent round must fail instead of accepting a held interaction key.
@@ -203,13 +206,47 @@ test('personal story requires Draco takedowns, timed rap inputs and actual drivi
       if(Math.abs(error)>.6 && g.car.speed>4)g.keys.add('Space');
     },16);
   });
-  await page.waitForFunction(()=>window.__game.finished,null,{timeout:25000});
+  await page.waitForFunction(()=>window.__game.car.gate>=1,null,{timeout:15000});
   await page.evaluate(()=>clearInterval(window.__driveController));
+  await page.keyboard.press('Digit1');
+  await page.waitForFunction(()=>window.__game.gunner);
+  await page.keyboard.press('Escape');
+  const gunnerPosition=await page.evaluate(()=>window.__game.car.group.position.z);
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(()=>window.__game.car.group.position.z)).toBe(gunnerPosition);
+  await page.locator('#resume').click();
+  expect(await page.evaluate(()=>window.__game.gunner)).toBe(true);
+  // Track the armed ambush through the gun's actual world-space muzzle, not a kill shortcut.
+  await page.evaluate(()=>{
+    window.__gunnerAim=setInterval(()=>{
+      const g=window.__game;
+      if(!g.running||!g.gunner)return;
+      const target=g.enemies.find(e=>e.driveBy&&e.health>0);
+      if(!target)return;
+      const p=g.player,gun=p.guns[0];
+      g.scene.updateMatrixWorld(true);
+      const origin=gun.muzzle.getWorldPosition(p.group.position.clone());
+      const aim=target.group.position.clone();aim.y+=1.25;
+      const delta=aim.sub(origin);
+      g.yaw=Math.atan2(-delta.x,-delta.z);
+      g.pitch=Math.atan2(delta.y,Math.hypot(delta.x,delta.z))-p.recoil-gun.recoil;
+    },16);
+  });
+  await page.waitForFunction(()=>window.__game.player.draw===0);
+  await page.screenshot({path:'test-results/chiraq-back-seat.png'});
+  await page.mouse.down();
+  await page.waitForFunction(()=>window.__game.driveByKills>=2,null,{timeout:20000});
+  await page.mouse.up();
+  await page.evaluate(()=>clearInterval(window.__gunnerAim));
+  await page.waitForFunction(()=>window.__game.finished,null,{timeout:25000});
   await expect(page.locator('#result-title')).toHaveText('CREWEXTRACTED.');
   expect(await page.evaluate(()=>window.__game.car.gate)).toBe(3);
+  expect(await page.evaluate(()=>window.__game.driveByKills)).toBeGreaterThanOrEqual(2);
+  expect(await page.evaluate(()=>window.__game.characters[0].xp)).toBe(100);
   await page.locator('#result-menu').click();
   await expect(page.locator('#menu')).toBeVisible();
   expect(await page.evaluate(()=>({gate:__game.car.gate,driving:__game.driving,rap:__game.rap,score:__game.rapScore}))).toEqual({gate:0,driving:false,rap:null,score:0});
+  expect(await page.evaluate(()=>({gunner:__game.gunner,driveBy:__game.driveByKills,xp:__game.characters[0].xp}))).toEqual({gunner:false,driveBy:0,xp:100});
 });
 
 test('rap and driving can pause and quit; cars collide and all mission state resets', async ({ page }) => {
@@ -257,4 +294,75 @@ test('rap and driving can pause and quit; cars collide and all mission state res
   await expect(page.locator('#menu')).toBeVisible();
   await expect(page.locator('#drive-panel')).toBeHidden();
   expect(await page.evaluate(()=>({speed:__game.car.speed,gate:__game.car.gate,integrity:__game.car.integrity,driving:__game.driving,visible:__game.characters.every(p=>p.group.visible)}))).toEqual({speed:0,gate:0,integrity:100,driving:false,visible:true});
+});
+
+test('a Special Opp completes Draco task without any kill ranking', async ({page})=>{
+  await enter(page);
+  await page.evaluate(()=>{
+    const g=window.__game;g.running=false;
+    g.characters[1].kills=50;g.characters[2].kills=50;
+    const target=g.enemies.find(e=>e.special);
+    g.enemies.forEach(e=>e.health=0);target.health=1;
+    target.group.position.set(0,0,-2);
+    const p=g.player;p.group.position.set(-.4,0,4);p.group.rotation.set(0,0,0);
+    p.arms.rotation.set(-.04,0,0);p.body.position.y=0;p.body.rotation.set(0,0,0);
+    g.shoot(p);g.running=true;
+  });
+  await page.waitForFunction(()=>window.__game.stage===1);
+  expect(await page.evaluate(()=>({kills:__game.player.kills,special:__game.player.specialKills,xp:__game.player.xp}))).toEqual({kills:1,special:1,xp:80});
+});
+
+test('companions follow safely, use weak fire, and cannot die while inactive', async ({page})=>{
+  await enter(page);
+  const damage=await page.evaluate(()=>{
+    const g=window.__game;g.running=false;
+    const p=g.characters[0],target=g.enemies[0];
+    p.group.position.set(-.4,0,4);p.group.rotation.set(0,0,0);p.body.position.y=0;p.body.rotation.set(0,0,0);p.arms.rotation.set(-.04,0,0);
+    g.enemies.forEach(e=>e.health=0);target.health=85;target.group.position.set(0,0,-2);
+    g.shoot(p);const active=85-target.health;
+    target.health=85;p.recoil=0;g.active=1;
+    g.shoot(p);const support=85-target.health;
+    g.active=0;
+    g.player.group.position.set(20,0,18);g.characters[1].group.position.set(0,0,0);g.characters[1].health=20;g.characters[2].group.position.set(20,0,19);
+    target.health=85;target.group.position.set(0,0,-4);target.cooldown=0;
+    const random=Math.random;Math.random=()=>0;
+    try{g.updateAI(.016);}finally{Math.random=random;}
+    const health=g.characters[1].health,finished=g.finished;
+    g.enemies.forEach(e=>e.health=0);g.reinforcementTimer=Infinity;
+    g.characters.forEach((p,i)=>{p.health=100;p.group.position.set(i===0?0:i===1?-2:2,0,i===0?-6:12);p.aiGoal=null;p.aiPlanCooldown=0;});
+    g.running=true;
+    return{active,support,health,finished};
+  });
+  expect(damage.active).toBeGreaterThan(20);
+  expect(damage.support).toBeGreaterThan(0);
+  expect(damage.support).toBeLessThan(damage.active*.3);
+  expect(damage.health).toBeGreaterThanOrEqual(20);
+  expect(damage.finished).toBe(false);
+  await page.waitForFunction(()=>window.__game.characters[1].group.position.z<8);
+  expect(await page.evaluate(()=>window.__game.characters.every(p=>p.health===100))).toBe(true);
+  expect(await page.evaluate(()=>window.__game.characters.slice(1).every(p=>!window.__game.colliders.some(b=>p.group.position.x+.35>b.min.x&&p.group.position.x-.35<b.max.x&&p.group.position.z+.35>b.min.z&&p.group.position.z-.35<b.max.z&&b.max.y>.1)))).toBe(true);
+});
+
+test('narration queues, can be reread, and XP stays saved without consuming an unassigned special',async({page})=>{
+  await enter(page);
+  await page.evaluate(()=>{
+    const g=window.__game;g.enemies.forEach(e=>e.cooldown=Infinity);
+    g.toast('First line for a slow reader.');g.toast('Second line waits its turn.');g.awardXP(1,60);
+  });
+  expect(await page.evaluate(()=>window.__game.toastTime)).toBeGreaterThan(10);
+  expect(await page.evaluate(()=>window.__game.narrationQueue.includes('Second line waits its turn.'))).toBe(true);
+  await page.keyboard.press('Escape');
+  await page.locator('.dialogue-history summary').click();
+  await expect(page.locator('#narration-log')).toContainText('First line for a slow reader.');
+  await expect(page.locator('#narration-log')).toContainText('Second line waits its turn.');
+  await page.reload();
+  await page.waitForFunction(()=>Boolean(window.__game));
+  expect(await page.evaluate(()=>window.__game.characters[1].xp)).toBe(60);
+  await page.locator('#start').click();
+  await page.keyboard.press('Digit2');
+  await page.evaluate(()=>window.__game.awardXP(1,40));
+  await expect(page.locator('#xp-label-1')).toHaveText('SPECIAL READY');
+  await page.keyboard.press('KeyF');
+  expect(await page.evaluate(()=>window.__game.player.xp)).toBe(100);
+  expect(await page.evaluate(()=>window.__game.dialogueLog.some(line=>line.includes('not assigned yet')))).toBe(true);
 });
