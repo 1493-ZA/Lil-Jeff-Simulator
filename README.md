@@ -1,6 +1,6 @@
 # Lil Jeff Simulator
 
-A third-person browser prototype with King Draco, Lil doom, and Z78. Three connected missions take place on a fictional Chicago-inspired block, ending in a playable free-roam preview. Play the hosted build at https://evanickert.github.io/Lil-Jeff-Simulator/ after the GitHub Pages deployment finishes.
+A third-person browser prototype with King Draco, Lil doom, and Z78. Three connected missions take place on a fictional Chicago-inspired block, ending in a playable free-roam preview. Play the hosted build at https://1493-ZA.github.io/Lil-Jeff-Simulator/ after the GitHub Pages deployment finishes.
 
 ## Run locally
 
