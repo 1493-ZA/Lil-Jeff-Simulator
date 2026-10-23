@@ -70,6 +70,8 @@ export async function upgradeCar(game,car,file,tint=null){
 // Dusk street HDRI (CC0, Poly Haven) for image-based lighting and reflections.
 // The painted sky stays; the HDRI only replaces the neutral studio environment.
 export function loadEnvironment(game){
+ // Low graphics keeps the cheap built-in studio environment (no HDR download or PMREM pass).
+ if(game.quality==='low')return;
  import('three/addons/loaders/HDRLoader.js').then(({HDRLoader})=>{
   const file=game.quality==='high'?'dusk-city-2k.hdr':'dusk-city-1k.hdr';
   new HDRLoader().load((import.meta.env?.BASE_URL||'/')+'textures/hdri/'+file,texture=>{
