@@ -3,13 +3,16 @@ import { assistAim } from './cover.js';
 import { needsReload, WEAPONS } from './combat.js';
 
 const UP=new THREE.Vector3(0,1,0);
-const seats=[[-1.2,.25,.8],[1.2,.25,-.65],[-1.2,.25,-.65]];
+// Seats inside the cabin: Draco rear-left, doom front-right, Z78 driving.
+// Characters sink into the seat so heads stay under the roof and their arms
+// (and guns) sit at window height, firing out through the side windows.
+const seats=[[-.52,-.5,.55],[.52,-.5,-.3],[-.48,-.5,-.3]];
 export function updateVehicleCrew(game,dt) {
   const car=game.car;
   for(const p of game.characters) {
     p.group.visible=true;
     p.group.position.copy(new THREE.Vector3(...seats[p.index]).applyAxisAngle(UP,car.yaw).add(car.group.position));
-    p.body.position.y=-.1;p.body.rotation.x=0;p.legs.forEach(leg=>leg.visible=false);
+    p.body.position.y=0;p.body.rotation.x=0;p.legs.forEach(leg=>leg.visible=false);
     if(p.leftArm)p.leftArm.rotation.x=p.index===2?-.35-p.arms.rotation.x:0;
     if(p.index===2 && p.guns[1])p.guns[1].group.visible=false;
     p.recoil=THREE.MathUtils.damp(p.recoil,0,6,dt);
