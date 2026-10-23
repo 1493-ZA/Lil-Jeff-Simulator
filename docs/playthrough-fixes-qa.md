@@ -25,4 +25,19 @@ Follow-up to the 2026-10-22 playthrough. Graphics, character looks, rival colour
 
 ## Validation
 
-Results are recorded below after the release checks.
+Environment: Chromium with SwiftShader (CPU rendering) in a container. This renderer runs the game at roughly one frame per second in headless mode — the original build measured the same — so timing-heavy browser tests use game time and longer limits. These numbers are not real-GPU frame rates.
+
+- **Node checks:** 32/32 pass (`npm test`), including new hotwire solvability tests (every wiring grid solved through the real drawing rules, rotate boards solved by rotation, fuse decoys rejected) and updated navigation/delivery rules.
+- **Real-loop Mission 1 playthrough** (`requestAnimationFrame` loop, real keyboard and mouse): Draco cleared three opps; doom saw the `E TAKE THE MIC` prompt on the mic and passed the verse with character vocals and a crowd/crew reaction; Z78 saw `E HOLD · BREAK IN`, the door opened outward to −0.95 rad, the cursor was released and the rotate puzzle was solved by clicking tiles; after switching to Draco, Z78 drove all three checkpoints, made a K-turn at the south end and kept lapping north while control switched Draco → doom → Draco. No page errors.
+- **Driving regression tests:** after the gates, 90 s of autonomous laps with zero crashes and all 12 loop points visited; after a player crash into a kerb, autopilot backed out and drove on.
+- **Grounding:** after 40 s of patrolling, rival body offset stayed under 0.05 (previously it drifted down without bound); all bodies rest within 0–0.06 of the surface, in several different poses.
+- **Railway:** no collider intersects the deck; a character climbs both stair flights to the 8.4-unit platform and onto the deck.
+- **Free roam:** boundary notices; heat reaches levels 1–4, spawns and converges rivals, forces `GET OUT THE OPP BLOCK`, and clears to 0 after escaping to Commerce Row; all four handoff encounter types; guarded ammo stash (3 guards, blocked until secured, banner lists restocked reserves); 300 generated civilians produced 300 distinct looks with no reserved crew hair or colours.
+- **Co-op:** HOST GAME → 6-character code → a second browser joins with only the code (local PeerJS broker, WebRTC data channel), shared mission start and kills, departure updates the roster. The relay path (160 ms round trip) still passes. It found and fixed a regression where `Escape` had been dropped from the guest command list.
+- **Graphics quality** (free roam, 1280×720 software render, one camera view): Low 175 draw calls / 55k triangles / 5 ms; Medium 782 / 320k / 12 ms; High 810 / 421k / 9 ms. No errors at any level. Draw calls are higher than the previous 463 because of civilians, parked cars and territory props; distant civilians are hidden and only nearby ones cast shadows.
+
+### Not verified here
+
+- The public PeerJS broker (`0.peerjs.com`) is blocked from this container, so code-based co-op was verified against a local broker only. Very strict NATs without TURN may fail to connect; the relay remains available.
+- Voices were checked objectively (pitch separation: Draco ≈94 Hz, Z78 ≈120 Hz, doom ≈127 Hz; bar fit 1.32 s for the 1.3 s slots) but not listened to by a person.
+- Physical Xbox controller, real-GPU frame rate and a human feel review of the movement are still outstanding.
