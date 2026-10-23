@@ -35,3 +35,11 @@ lookalikes and are not affiliated with or endorsed by any manufacturer.
 | `fabric/fleece/*` | Cotton Jersey | Rico Cilliers, colormass | https://polyhaven.com/a/cotton_jersey | CC0 |
 | `fabric/leather/*` | Brown Leather | Rob Tuytel | https://polyhaven.com/a/brown_leather | CC0 |
 | `hdri/dusk-city-1k.hdr`, `hdri/dusk-city-2k.hdr` | Modern Evening Street | Grzegorz Wronkowski | https://polyhaven.com/a/modern_evening_street | CC0 |
+| `building/brick-red/*` | Brick Wall 02 | Dimitrios Savva | https://polyhaven.com/a/brick_wall_02 | CC0 |
+| `building/brick-dark/*` | Brick Wall 10 | Dimitrios Savva | https://polyhaven.com/a/brick_wall_10 | CC0 |
+| `building/shutter-rust/*` | Rusted Shutter | Dimitrios Savva | https://polyhaven.com/a/rusted_shutter | CC0 |
+| `building/window-frame/*` | Black Painted Planks | Dimitrios Savva | https://polyhaven.com/a/black_painted_planks | CC0 |
+| `building/concrete-trim/*` | Concrete Wall 007 | Charlotte Baglioni, Dario Barresi, Rico Cilliers | https://polyhaven.com/a/concrete_wall_007 | CC0 |
+| `street/asphalt/*` | Asphalt 02 | Rob Tuytel | https://polyhaven.com/a/asphalt_02 | CC0 |
+| `street/sidewalk/*` | Concrete Pavement 02 | Charlotte Baglioni | https://polyhaven.com/a/concrete_pavement_02 | CC0 |
+| `street/curb/*` | Gravel Concrete 04 | Dimitrios Savva | https://polyhaven.com/a/gravel_concrete_04 | CC0 |
