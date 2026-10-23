@@ -3,7 +3,7 @@ import {ROSTER,WEAPONS} from './combat.js';
 import {createRap,RAP_PATTERN,beatTime,RAP_PASS} from './mission.js';
 import {updateRapFeedback,streetRapDone} from './performance.js';
 import {createContact,updateContact,exchange,disposeProp} from './contacts.js';
-import {createHeat,updateHeat,addHeat} from './territory.js';
+import {createHeat,updateHeat,addHeat,zoneAt} from './territory.js';
 import {safeFooting} from './companions.js';
 import {Crowd} from './npc.js';
 export const MISSION_FOUR_CRED=5000;
@@ -58,7 +58,7 @@ export function beginStreet(g){
  const mission=new THREE.Mesh(new THREE.RingGeometry(1.3,1.45,40),new THREE.MeshBasicMaterial({color:'#edc889',transparent:true,opacity:.6,side:THREE.DoubleSide,depthWrite:false}));mission.rotation.x=-Math.PI/2;mission.position.set(MISSION_FOUR.x,.13,MISSION_FOUR.z);g.scene.add(mission);g.street.props.push(mission);
  // Opp Block patrols are watchful, not instantly hostile.
  for(const [x,z]of [[56,-20],[58,-45]]){const e=g.spawnEnemy(x,z);e.streetPatrol=true;e.passive=true;e.cooldown=2.5;}
- g.crowd=new Crowd(g);
+ g.crowd=new Crowd(g);g.zone=zoneAt(g.player.group.position.x).id;
  g.toast('Free roam. Our block to the west, Opp Block across Commerce Row. Check the map for cyphers, jobs and stashes.');
 }
 // Nudge a requested spawn to the nearest open, walkable spot.

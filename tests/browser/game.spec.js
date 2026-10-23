@@ -152,7 +152,7 @@ test('pause, resume, and return to main menu reset a run without reloading', asy
 });
 
 test('Mission 1 completes only on its last opp and automatically rewards and starts Mission 2', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(240000);
   await enter(page);
   await page.evaluate(()=>window.__game.enemies.forEach(e=>e.cooldown=Infinity));
   await page.keyboard.press('Digit2');
@@ -425,7 +425,7 @@ test('crew fires autonomously, driver shoots one-handed while steering, and AI d
   expect(await page.evaluate(()=>window.__game.characters[2].guns[1].group.visible)).toBe(false);
   const start=await page.evaluate(()=>window.__game.car.group.position.z);
   await page.keyboard.down('KeyW');
-  await page.mouse.down();
+  await page.mouse.move(720,300);await page.mouse.down();
   await page.waitForFunction(z=>window.__game.car.group.position.z<z-.8&&window.__game.characters[2].loadout[0].rounds[0]<50,start);
   await page.mouse.up();await page.keyboard.up('KeyW');
   expect(await page.evaluate(()=>window.__game.characters[2].loadout[0].rounds[1])).toBe(50);

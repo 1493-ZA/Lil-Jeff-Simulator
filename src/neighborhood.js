@@ -55,6 +55,12 @@ export function buildNeighborhood(game) {
     box(5.6,.018,.055,'#797e81',12,.115,z);
   }
   for(const [x,z] of [[3,4],[-4,-19],[2,-40],[-2,-65]]){const puddle=new THREE.Mesh(new THREE.CircleGeometry(1,32),game.material('#35414a',{roughness:.14,metalness:.45,transparent:true,opacity:.6}));puddle.rotation.x=-Math.PI/2;puddle.scale.set(1.7,.7,1);puddle.position.set(x,.021,z);game.scene.add(puddle);}
+  // Street furniture: manholes, kerb drains, stop lines, hydrants, AC units
+  // and window ledges break up the flat road and plain facades.
+  for(const [x,z] of [[-3,-6],[4,-29],[-2,-47],[3,-71],[1,10]]){const lid=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.02,20),game.material('#3b3d3e',{roughness:.6,metalness:.5}));lid.position.set(x,.012,z);lid.receiveShadow=true;game.scene.add(lid);for(let n=-1;n<=1;n++)box(.7,.004,.04,'#2a2c2d',x,.024,z+n*.14);}
+  for(let z=15;z>-80;z-=14)for(const side of [-1,1]){box(.5,.03,.25,'#1e2224',side*8.75,.02,z);for(let n=0;n<4;n++)box(.04,.032,.22,'#3a3f42',side*8.75-.18+n*.12,.022,z);}
+  for(const z of [-15.2,-64.2])box(8.4,.012,.32,'#d9d3c0',z<-40?-4.2:4.2,.014,z);
+  for(const [x,z] of [[-9.6,-4],[9.6,-28],[-9.6,-58]]){box(.26,.55,.26,'#b23b2c',x,.28,z);box(.34,.08,.34,'#b23b2c',x,.58,z);box(.4,.1,.12,'#9b3326',x,.38,z);}
   // Crosswalk, resurfaced asphalt, stoops and narrow residential lots.
   for(let x=-7.5;x<8;x+=1.7) for(const z of [-17,-66]) box(.9,.02,3.4,'#c2bca9',x,.015,z);
   [[-3,3,2,3],[5,-22,2.5,4],[-4,-46,3,5]].forEach(([x,z,w,d])=>box(w,.015,d,'#303844',x,.015,z));
@@ -76,6 +82,8 @@ export function buildNeighborhood(game) {
       if((j+floor+i)%3!==0) box(.1,1.55,1.05,'#c38e56',side*14.35,2.2+floor*2.8,wz);
     }
     box(.1,2.4,1.2,'#3b3432',side*14.4,1.25,z);
+    for(let floor=0;floor<3;floor++)box(.12,.08,12.2,'#9c8a76',side*14.5,3.6+floor*2.8,z);
+    if(i%2===0){box(.6,.45,.7,'#a7aba6',side*14.15,5.3,z-4);box(.62,.06,.72,'#7c807b',side*14.15,5.55,z-4);}
     for(let step=0;step<3;step++) box(1.1,.18*(step+1),2,'#8b8376',side*(13.2+step*.35),.09*(step+1),z,true);
     for(const dz of [-6.5,6.5]) {
       box(2.5,.05,.05,'#303a40',side*13,1.2,z+dz);

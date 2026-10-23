@@ -24,7 +24,7 @@ export function aimPoint(game){
 export function alignWeapon(game,p,target){
   game.scene.updateMatrixWorld(true);
   for(const gun of p.guns){
-    for(let i=0;i<3;i++){
+    for(let i=0;i<5;i++){
       const origin=gun.muzzle.getWorldPosition(new THREE.Vector3());
       const direction=target.clone().sub(origin).normalize();
       const world=new THREE.Quaternion().setFromUnitVectors(FORWARD,direction);

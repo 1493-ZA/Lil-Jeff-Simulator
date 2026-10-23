@@ -318,7 +318,11 @@ export class Game {
     window.addEventListener('keyup', event => this.keys.delete(event.code));
     window.addEventListener('blur', () => {if(!this.net.host)this.pause();});
     document.addEventListener('visibilitychange', () => { if (document.hidden&&!this.net.host) this.pause(); });
-    document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && this.running&&!this.net.host&&this.carWork?.phase!=='wire') this.pause(); });
+    document.addEventListener('pointerlockchange', () => {
+      // A cursor release we asked for (hotwire puzzle) is not the player leaving.
+      if(!document.pointerLockElement&&this.cursorReleased){this.cursorReleased=false;return;}
+      if (!document.pointerLockElement && this.running&&!this.net.host&&this.carWork?.phase!=='wire') this.pause();
+    });
     document.addEventListener('mousemove', event => {
       if (!this.running || document.pointerLockElement !== this.canvas) return;
       this.lookHold=2;
@@ -740,7 +744,7 @@ export class Game {
     if(task.phase==='wire'){
       task.timer=(task.timer||0)+dt;
       // Free the cursor so the puzzle can be solved with the mouse.
-      if(!task.cursorFree){task.cursorFree=true;if(document.pointerLockElement)document.exitPointerLock();}
+      if(!task.cursorFree){task.cursorFree=true;if(document.pointerLockElement){this.cursorReleased=true;document.exitPointerLock();}}
       this.car.door.rotation.y=damp(this.car.door.rotation.y,DOOR_OPEN*.9,10,dt);
       const seat=new THREE.Vector3(-.55,.1,-.3).applyAxisAngle(UP,this.car.yaw).add(this.car.group.position);
       this.player.group.position.lerp(seat,1-Math.exp(-dt*7));this.player.group.rotation.y=this.car.yaw;this.player.legs.forEach(l=>l.visible=false);this.player.arms.rotation.x=-.65;

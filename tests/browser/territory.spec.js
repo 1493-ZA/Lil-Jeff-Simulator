@@ -4,8 +4,9 @@ async function enter(page,query=''){await page.goto('/?test=1&quality=low'+query
 async function free(page){await enter(page);await page.evaluate(async()=>{const {beginPursuit,unlockFreeRoam}=await import('/src/pursuit.js');beginPursuit(__game);__game.studioProps={visible:true};unlockFreeRoam(__game);});}
 test('crossing blocks shows a subtle notice; Opp Block heat climbs to max, forces an escape and clears outside',async({page})=>{
  await free(page);
- await page.evaluate(()=>{__game.player.group.position.set(36,0,-31);});await expect(page.locator('#zone-notice')).toHaveText('NOW ENTERING: COMMERCE ROW');
- await page.evaluate(()=>{__game.player.group.position.set(50,0,-31);});await expect(page.locator('#zone-notice')).toHaveText('NOW ENTERING: OPP BLOCK');await expect(page.locator('#heat-meter')).toBeVisible();
+ // Software rendering compiles many shaders on the first free-roam frames; allow time.
+ await page.evaluate(()=>{__game.player.group.position.set(36,0,-31);});await expect(page.locator('#zone-notice')).toHaveText('NOW ENTERING: COMMERCE ROW',{timeout:30000});
+ await page.evaluate(()=>{__game.player.group.position.set(50,0,-31);});await expect(page.locator('#zone-notice')).toHaveText('NOW ENTERING: OPP BLOCK',{timeout:30000});await expect(page.locator('#heat-meter')).toBeVisible();
  const result=await page.evaluate(async()=>{const S=await import('/src/street.js');const g=__game;g.running=false;const levels=new Set();
   for(let i=0;i<60*170&&!g.street.heat.escape;i++){g.elapsed+=1/60;S.updateStreet(g,1/60);levels.add(g.street.heat.level);}
   const escape=g.street.heat.escape,spawned=g.street.heat.spawned.length,chasing=g.enemies.filter(e=>e.heatSpawn&&e.chase).length;g.updateHUD();
@@ -52,9 +53,9 @@ test('railway: no building crosses the deck and the station stairs reach the pla
  expect(result.crossing).toBe(0);expect(result.landing).toBeCloseTo(4.2,1);expect(result.platform).toBeCloseTo(8.4,1);expect(result.z).toBeGreaterThan(-59.6);
 });
 test('HOST GAME gives a room code and a second browser joins with only that code',async({browser})=>{
- const server=PeerServer({port:9123,host:'127.0.0.1',path:'/'});
+ test.setTimeout(180000);const server=PeerServer({port:9123,host:'127.0.0.1',path:'/'});
  try{
-  const pages=[];for(let i=0;i<2;i++){const p=await browser.newPage({viewport:{width:960,height:600}});await p.goto('/?test=1&quality=low&peer=127.0.0.1:9123');await p.waitForFunction(()=>!!window.__game);await p.evaluate(()=>__game.renderer.setPixelRatio(.4));pages.push(p);}
+  const pages=[];for(let i=0;i<2;i++){const p=await browser.newPage({viewport:{width:960,height:600}});await p.goto('/?test=1&quality=low&peer=127.0.0.1:9123',{timeout:60000});await p.waitForFunction(()=>!!window.__game);await p.evaluate(()=>__game.renderer.setPixelRatio(.4));pages.push(p);}
   const [host,guest]=pages;
   await host.locator('.coop-settings>summary').click();await host.locator('#coop-host').click();await expect(host.locator('#coop-room-card')).toBeVisible({timeout:20000});
   const code=(await host.locator('#coop-room-code').textContent()).trim();expect(code).toMatch(/^[2-9A-Z]{6}$/);

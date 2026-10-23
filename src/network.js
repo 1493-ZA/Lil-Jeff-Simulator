@@ -13,7 +13,7 @@ import {renderHeatMeter,updateZone} from './territory.js';
 import {CLAIM_POINTS,waveCount,beginClaimBlock,clearEnemies} from './campaign.js';
 import {beginPursuit,launchChase,beginStudio,spawnCops,unlockFreeRoam} from './pursuit.js';
 const $=s=>document.querySelector(s),finite=(v,min,max)=>Math.max(min,Math.min(max,Number(v)||0));
-const KEYS=new Set(['Digit4','KeyR','KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','Space','KeyC','KeyV','KeyE','KeyQ','KeyR','KeyJ','KeyK','KeyL','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Digit1','Digit2','Digit3']);
+const KEYS=new Set(['Escape','Digit4','KeyR','KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','Space','KeyC','KeyV','KeyE','KeyQ','KeyR','KeyJ','KeyK','KeyL','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Digit1','Digit2','Digit3']);
 export class CoopSession{
  constructor(game){this.game=game;this.events=[];this.peers=new Map();this.slots=[];this.assignments={};this.slot=null;this.remoteInput=false;this.sequence=0;this.lastSequence=-1;this.commands=[];this.clock=0;}
  get host(){return this.socket?.readyState===1&&this.slot===0;}
@@ -40,7 +40,8 @@ export class CoopSession{
   socket.onmessage=event=>{let packet;try{packet=JSON.parse(event.data);}catch{return;}
    if(packet.type==='welcome'){this.slot=packet.slot;this.room=packet.room;if(this.slot>0){$('#start').disabled=true;$('#start').textContent='WAITING FOR HOST';}this.status(this.slot===0?`You are hosting as King Draco. Share the room code; press ENTER CHIRAQ when everyone is in.`:`Joined room ${packet.room} as ${['King Draco','Lil doom','Z78'][this.slot]}. Waiting for the host to start.`);this.game.onRoom?.({room:packet.room,slot:this.slot});}
    if(packet.type==='members'){this.slots=packet.slots;this.game.onRoom?.({room:this.room,slot:this.slot,players:packet.slots.length});if(this.host){for(const slot of this.slots)if(this.assignments[slot]===undefined)this.assignments[slot]=slot;for(const key of Object.keys(this.assignments))if(!this.slots.includes(Number(key)))delete this.assignments[key];if(this.controlled(this.game.active)&&!this.game.rap)this.game.active=[0,1,2].find(i=>!this.controlled(i))??0;}for(const slot of this.peers.keys())if(!this.slots.includes(slot))this.peers.delete(slot);}
-   if(packet.type==='input'&&this.host){const input=packet.input;if(!input||!this.slots.includes(packet.slot))return;this.peers.set(packet.slot,{aimSession:this.peers.get(packet.slot)?.aimSession,...input,received:performance.now(),commands:(Array.isArray(input.commands)?input.commands:[]).filter(c=>KEYS.has(c)||/^Puzzle:(node|slot|rotate|down|enter|up):\d{1,2}:\d{1,2}$/.test(c)).slice(0,12)});}
+   if(packet.type==='input'&&this.host){const input=packet.input;if(!input||!this.slots.includes(packet.slot))return;const previous=this.peers.get(packet.slot);this.peers.set(packet.slot,{aimSession:previous?.aimSession,...input,received:performance.now(),commands:[...(previous?.commands||[]),...(Array.isArray(input.commands)?input.commands:[])].filter(c=>KEYS.has(c)||/^Puzzle:(node|slot|rotate|down|enter|up):\d{1,2}:\d{1,2}$/.test(c))
+.slice(-24)});}
    if(packet.type==='snapshot'&&this.guest&&packet.state?.seq>this.lastSequence){this.lastSequence=packet.state.seq;this.apply(packet.state);}
    if(packet.type==='error'){this.status(packet.message);this.errorShown=true;this.game.onRoom?.(null);}
   };
@@ -86,17 +87,19 @@ export class CoopSession{
  simulate(dt){if(!this.host)return;const g=this.game;
   for(const [peer,input]of this.peers){let slot=this.assignments[peer]??peer;
    if(!g.carWork&&!g.rap){for(const code of input.commands.filter(c=>/^Digit[123]$/.test(c))){const requested=Number(code.slice(-1))-1;const occupied=this.slots.some(id=>id!==peer&&(id===0?g.active:(this.assignments[id]??id))===requested);if(!occupied&&requested!==0){this.assignments[peer]=requested;slot=requested;}}input.commands=input.commands.filter(c=>!/^Digit[123]$/.test(c));}
-   if(performance.now()-input.received>500)continue;if(g.level===3&&g.pursuit.phase==='studio'){
+   // Stale input stops held keys and movement, but queued one-off commands
+   // (E, Escape, switches, puzzle actions) from a low-frame-rate guest still apply.
+   const stale=performance.now()-input.received>500;if(stale&&!input.commands.length)continue;if(g.level===3&&g.pursuit.phase==='studio'){
     if(g.active===slot){this.remoteInput=true;const actual=g.rap.time;g.rap.time=Math.max(actual-.4,Math.min(actual,Number(input.rapTime)||actual));for(const code of input.commands.splice(0))window.dispatchEvent(new KeyboardEvent('keydown',{code}));g.rap.time=actual;this.remoteInput=false;}continue;}
    const saved={active:g.active,keys:g.keys,yaw:g.yaw,pitch:g.pitch,shooting:g.shooting,aiming:g.aiming,aimSession:g.aimSession,padMove:g.padMove,remoteMove:g.remoteMove};
-   g.active=slot;g.keys=new Set((Array.isArray(input.keys)?input.keys:[]).filter(k=>KEYS.has(k)));g.yaw=finite(input.yaw,-10000,10000);g.pitch=finite(input.pitch,-.85,.65);g.shooting=!!input.shooting;g.aiming=!!input.aiming;g.aimSession=input.aimSession||null;g.padMove=null;g.remoteMove=input.move&&Number.isFinite(input.move.x)&&Number.isFinite(input.move.z)?{x:finite(input.move.x,-1,1),z:finite(input.move.z,-1,1)}:null;
+   g.active=slot;g.keys=new Set(stale?[]:(Array.isArray(input.keys)?input.keys:[]).filter(k=>KEYS.has(k)));g.yaw=finite(input.yaw,-10000,10000);g.pitch=finite(input.pitch,-.85,.65);g.shooting=!stale&&!!input.shooting;g.aiming=!stale&&!!input.aiming;g.aimSession=input.aimSession||null;g.padMove=null;g.remoteMove=input.move&&Number.isFinite(input.move.x)&&Number.isFinite(input.move.z)?{x:finite(input.move.x,-1,1),z:finite(input.move.z,-1,1)}:null;
    this.remoteTarget=Array.isArray(input.target)&&input.target.length===3&&input.target.every(Number.isFinite)?new THREE.Vector3(...input.target):null;
    if(this.remoteTarget&&this.remoteTarget.distanceTo(g.player.group.position)>150)this.remoteTarget=null;
    const actualRapTime=g.rap?.time;if(g.rap)g.rap.time=Math.max(g.rap.time-.4,Math.min(g.rap.time,Number(input.rapTime)||g.rap.time));
    this.remoteInput=true;for(const code of input.commands.splice(0)){if(g.carWork&&slot!==2)continue;if(g.rap&&slot!==(g.rap.owner??1))continue;if(code.startsWith('Puzzle:')){const [,action,a,b]=code.split(':');puzzleAction(g,action,Number(a),Number(b));continue;}window.dispatchEvent(new KeyboardEvent('keydown',{code}));}this.remoteInput=false;if(actualRapTime!==undefined&&g.rap)g.rap.time=actualRapTime;
    if(g.carWork&&slot===2)g.updateCarWork(dt);
    if(g.rap&&g.rap.purpose!=='studio')g.rap.owner??=slot;
-   if(!g.rap&&!g.carWork&&g.running){
+   if(!stale&&!g.rap&&!g.carWork&&g.running){
     if(!g.driving)g.updatePlayer(dt);
     else if(g.level!==3||slot===0){const p=g.player;p.group.rotation.y=g.yaw;p.arms.rotation.x=g.pitch;if(g.shooting&&p.draw<=0&&p.cooldown<=0&&p.reloading<=0)g.shoot(p);}
    }

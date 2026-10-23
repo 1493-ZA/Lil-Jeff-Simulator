@@ -98,7 +98,7 @@ export function decorateTerritories(game){
  // Team-coloured street props (parked car colours are set where the cars are built).
  for(const [x,z]of [[47.2,-36],[64.8,-50],[47.2,-8]]){box(.5,1,.5,'#1d4fb8',x,.5,z);box(.55,.08,.55,'#2f6bea',x,1.03,z);}
  for(const [x,z]of [[-9.6,-14],[9.6,-50],[-9.6,-60]]){box(.5,1,.5,'#9e2b26',x,.5,z);box(.55,.08,.55,'#c9413a',x,1.03,z);}
- const oppGlow=new THREE.PointLight('#3d7bff',8,14,2);oppGlow.position.set(56,3.5,-38);root.add(oppGlow);
- const homeGlow=new THREE.PointLight('#ff5144',6,12,2);homeGlow.position.set(0,3.5,-46);root.add(homeGlow);
+ // Glow comes from emissive strips and bulbs only: extra point lights would
+ // make every material in the scene more expensive to shade.
  batchStatic(root,true);game.territory=root;
 }
