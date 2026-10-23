@@ -566,7 +566,8 @@ test('ducking behind real cover blocks incoming and outgoing shots; peeking and 
   });
   await page.screenshot({path:'test-results/claim-cover-peek.png'});
   await page.keyboard.up('KeyX');
-  await page.evaluate(()=>__game.yaw=.6);
+  // The player now glides flush to the barricade, so the edge needs a wider aim angle.
+  await page.evaluate(()=>__game.yaw=.95);
   await page.waitForFunction(()=>__game.player.body.position.x<-.8&&__game.player.body.scale.y===1);
   await page.mouse.up({button:'right'});await page.keyboard.press('KeyC');
   await page.waitForFunction(()=>!window.__game.player.crouched&&window.__game.player.body.scale.y>.95);
