@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {batchStatic} from './quality.js';
+import {buildCar} from './models.js';
 // Compact second block reached through the passage at z=-31. Render batches
 // are local to each building so the renderer can cull individual lots.
 export function buildDistrict(game,brick){
@@ -18,9 +19,9 @@ export function buildDistrict(game,brick){
   for(let f=0;f<2;f++)for(let n=-1;n<=1;n++){box(.06,1.5,1.3,'#374c60',x-side*5.05,2+f*2.5,z+n*4,false,lot);box(.09,.1,1.5,'#b4aca0',x-side*5.1,1.2+f*2.5,z+n*4,false,lot);}
   box(.1,2.3,1.2,'#263d5e',x-side*5.1,1.2,z,false,lot);batchStatic(lot);
  }
- const sign=game.label('COMMERCE ROW / NIGHT MARKET','#e6d7a8',6,33,3,-31,27);sign.name='neutral district sign';
- const rival=game.label('EAST YARD / FICTIONAL RIVALS','#72a9ff',6,56,4,-54,27);
- const home=game.label('AFTER HOURS / HOME BLOCK','#9de5c6',6,12,4,-31,27);
+ const sign=game.label('COMMERCE ROW','#e6d7a8',6,33,3,-31,30);sign.name='neutral district sign';
+ const rival=game.label('OPP BLOCK','#72a9ff',5,56,4,-54,34);rival.name='rival district sign';
+ const home=game.label('OUR BLOCK','#ff8a7a',5,12,4,-31,34);home.name='home district sign';
  // Back-building alleys: pass-through gaps remain open at -31 and -47.
  for(const [x,z]of [[28,-40],[29,-55],[43,-16],[68,-44],[44,-65]]){
   box(1.6,1.3,2.2,'#42594e',x,.65,z,true);box(1.7,.1,2.3,'#263c35',x,1.35,z);
@@ -40,10 +41,10 @@ export function buildDistrict(game,brick){
  }
  for(const [x,z]of [[33,-12],[70,-64],[29,-64]]){box(2,1.2,1,'#667166',x,.6,z,true);box(2.1,.1,1.1,'#929888',x,1.25,z);}
  for(const [x,z]of [[63,-13],[49,-58]]){
-  box(2.2,.65,4.2,'#3a4b59',x,.8,z,true);box(1.9,.6,2.3,'#445b68',x,1.4,z);
-  for(const side of [-1,1])for(const dz of [-1.3,1.3])box(.25,.6,.65,'#20272d',x+side*1.1,.4,z+dz);
+  const parked=buildCar(game,[x,0,z],{paint:'#1f4fc4',parked:true,detail:game.quality==='high'});parked.group.name='opp block parked car';
+  game.colliders.push(new THREE.Box3(new THREE.Vector3(x-1.2,0,z-2.5),new THREE.Vector3(x+1.2,1.8,z+2.5)));
  }
  for(const x of [28,69])for(let n=0;n<8;n++)box(.035,1.7,.035,'#7d8582',x,.85,-58+n*.3);
- const mural=game.label('MAKE SOMETHING / AFTER HOURS','#c792eb',5,30,3,-56,24);mural.rotation.y=Math.PI/2;
+ const mural=game.label('MAKE SOMETHING / AFTER HOURS','#c792eb',5,26.3,3,-64,24);mural.rotation.y=Math.PI/2;
  batchStatic(root);game.district=root;
 }

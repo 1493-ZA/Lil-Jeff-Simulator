@@ -3,6 +3,8 @@ import {buildDistrict} from './district.js';
 import { OBJECTIVES, DRIVE_ROUTE } from './mission.js';
 import { buildCar } from './models.js';
 import { streetMaterial, addSky } from './surfaces.js';
+import { decorateTerritories } from './territory.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // A fictional Chicago-inspired streetscape. Decorative boxes are instanced to
 // keep the denser neighborhood affordable on integrated graphics.
@@ -57,6 +59,9 @@ export function buildNeighborhood(game) {
   for(let x=-7.5;x<8;x+=1.7) for(const z of [-17,-66]) box(.9,.02,3.4,'#c2bca9',x,.015,z);
   [[-3,3,2,3],[5,-22,2.5,4],[-4,-46,3,5]].forEach(([x,z,w,d])=>box(w,.015,d,'#303844',x,.015,z));
   for(const side of [-1,1]) for(let i=0;i<6;i++) {
+    // Lot 4 (z -61…-49) stays open on both sides: the elevated railway crosses
+    // there, with the station stairs on the west lot and parking on the east.
+    if(i===4)continue;
     const z=9-i*16;
     const x=side*20;
     const h=9+(i%3)*1.8;
@@ -89,10 +94,10 @@ export function buildNeighborhood(game) {
     box(1.7,1.4,2.3,'#3e5b52',x,.75,z,true);
     box(1.85,.12,2.4,'#243835',x,1.5,z);
   }
-  for(const [x,z,color] of [[-7,2,'#76625b'],[7,-13,'#3f5268'],[-7,-32,'#645b78'],[7,-61,'#726e59']]) {
-    box(2.4,.8,4.5,color,x,.8,z,true);
-    box(2.05,.7,2.3,'#425163',x,1.5,z);
-    for(const dx of [-1.2,1.2]) for(const dz of [-1.4,1.4]) box(.25,.65,.65,'#19252d',x+dx,.4,z+dz);
+  // Parked cars use the same rounded car model (lighter detail, no interior).
+  for(const [x,z,color,turn] of [[-7,2,'#76625b',0],[7,-13,'#3f5268',1],[-7,-32,'#a3302b',0],[7,-61,'#726e59',1]]) {
+    const parked=buildCar(game,[x,0,z],{paint:color,parked:true,detail:game.quality==='high'});parked.group.rotation.y=turn*Math.PI;parked.group.name='parked car';
+    game.colliders.push(new THREE.Box3(new THREE.Vector3(x-1.2,0,z-2.5),new THREE.Vector3(x+1.2,1.8,z+2.5)));
   }
   for(let z=14;z>-82;z-=23) for(const side of [-1,1]) {
     const x=side*10.8;
@@ -106,14 +111,7 @@ export function buildNeighborhood(game) {
     box(1.5,.08,.1,'#453c35',x,8.7,z);
     box(.025,.025,23,'#34343d',x,8.8,z-11.5);
   }
-  // Elevated rail crossing: steel columns, ties and a silver train silhouette.
-  for(const x of [-10.5,10.5]) for(const z of [-50,-56]) box(.45,8,.45,'#3e4b51',x,4,z,true);
-  box(65,.8,6.8,'#39464d',0,8,-53);
-  for(let x=-31;x<32;x+=1.2) box(.18,.2,6.5,'#736e65',x,8.6,-53);
-  for(const z of [-51,-55]) box(65,.15,.1,'#a0a7ab',0,8.8,z);
-  box(19,2.6,4.2,'#9caaa9',-18,10.2,-53);
-  for(let x=-26;x<-9;x+=2.3) box(1.4,1.15,.03,'#415867',x,10.5,-50.87);
-  box(19,.18,.04,'#b98b72',-18,9.3,-50.85);
+  buildRailway(game,box);
   box(.12,4,.12,'#4b4b4b',12,2,18);
   box(.15,1.6,2.1,'#babfb7',12,4.1,18);
   box(.9,.08,.8,'#ce825e',11.5,3.4,18);
@@ -129,7 +127,7 @@ export function buildNeighborhood(game) {
     const ring=new THREE.Mesh(new THREE.TorusGeometry(i===2?3.5:2,.035,5,48),new THREE.MeshBasicMaterial({color:o.color,transparent:true,opacity:.6}));
     ring.rotation.x=Math.PI/2;
     ring.position.set(o.position[0],.14,o.position[2]); game.scene.add(ring);
-    const marker=game.label(`0${i+1} / ${['DRACO','THE MIC','GETAWAY'][i]}`,o.color,3.7,o.position[0],3.4,o.position[2]);
+    const marker=game.label(`0${i+1} / ${['DRACO','THE MIC','GETAWAY'][i]}`,o.color,3.7,o.position[0],3.4,o.position[2]);marker.visible=false;ring.visible=false;
     return {ring,marker};
   });
   game.routeMarkers=DRIVE_ROUTE.map(([x,z],i)=>{
@@ -139,7 +137,7 @@ export function buildNeighborhood(game) {
     label.visible=false;
     return {ring,label};
   });
-  buildDistrict(game,brick);
+  buildDistrict(game,brick);decorateTerritories(game);
   const dummy=new THREE.Object3D();
   const geometry=new THREE.BoxGeometry(1,1,1);
   for(const {material,items} of batches.values()) {
@@ -148,4 +146,43 @@ export function buildNeighborhood(game) {
     mesh.castShadow=mesh.receiveShadow=true;
     game.scene.add(mesh);
   }
+}
+
+// Elevated railway over the street at z=-53. The deck clears the street by
+// 7.6 units, rests on piers outside the traffic lanes, and passes over open
+// lots only (no buildings). The west lot holds a station: two stair flights
+// up to a platform beside the tracks. Mission 4 will build on this later.
+export const RAIL={z:-53,minX:-40,maxX:33,top:8.4};
+function buildRailway(game,box){
+ const z=RAIL.z,solid=true;
+ game.railBoxes=[];const deck=(w,h,d,c,x,y,zz)=>{box(w,h,d,c,x,y,zz,solid);game.railBoxes.push(game.colliders.at(-1));};
+ deck(RAIL.maxX-RAIL.minX,.8,6.8,'#39464d',(RAIL.minX+RAIL.maxX)/2,8,z);
+ for(const dz of [-3.55,3.55])box(RAIL.maxX-RAIL.minX,1.1,.3,'#2f3a40',(RAIL.minX+RAIL.maxX)/2,8.2,z+dz);
+ for(let x=RAIL.minX+.6;x<RAIL.maxX;x+=1.2)box(.18,.2,6.2,'#736e65',x,8.5,z);
+ for(const dz of [-1.6,1.6,-.85,.85])box(RAIL.maxX-RAIL.minX,.15,.1,'#a0a7ab',0+(RAIL.minX+RAIL.maxX)/2,8.68,z+dz);
+ // Piers: at the kerbs (never in a lane), inside the open lots and at the end.
+ for(const x of [-10.5,10.5,-20,20,-31,31.5])for(const dz of [-3,3])box(.5,7.6,.5,'#3e4b51',x,3.8,z+dz,solid);
+ box(2,7.6,7,'#55585a',32.5,3.8,z,solid);
+ // A stopped train at the station (rounded silhouette, windows both sides).
+ const train=new THREE.Group();train.name='elevated train';game.scene.add(train);
+ const car=(x)=>{const body=new THREE.Mesh(new RoundedBoxGeometry(9.2,2.5,3.1,4,.35),game.material('#a7b2b3',{metalness:.55,roughness:.35}));body.position.set(x,10.15,z-1.1);train.add(body);
+  for(const side of [-1,1]){for(let w=-3.6;w<=3.6;w+=1.8){const glass=game.box(1.3,.95,.04,'#2f4552',x+w,10.45,z-1.1+side*1.57,{parent:train,roughness:.15,metalness:.4});glass.castShadow=false;}game.box(9.2,.14,.05,'#b98b72',x,9.55,z-1.1+side*1.57,{parent:train});}
+  for(const dx of [-3,3]){game.box(1.8,.45,2.4,'#25292c',x+dx,8.95,z-1.1,{parent:train});}
+  game.colliders.push(new THREE.Box3(new THREE.Vector3(x-4.6,8.7,z-2.65),new THREE.Vector3(x+4.6,11.4,z+.45)));game.railBoxes.push(game.colliders.at(-1));};
+ car(-26.5);car(-17);
+ // West lot: station platform south of the deck, reached by two stair flights.
+ deck(10,.3,3.2,'#6f7472',-20,8.25,-58);
+ // Platform rail leaves an opening where the upper flight arrives (x≈-16.5).
+ for(let x=-24.8;x<=-17.6;x+=.8)box(.05,1,.05,'#3b4246',x,8.9,-59.55);box(7.4,.06,.06,'#3b4246',-21.1,9.4,-59.55);
+ const rise=.35,run=.5;
+ for(let n=0;n<12;n++){const h=rise*(n+1);box(run,h,1.8,'#7d807c',-16-n*run-run/2,h/2,-62.5,solid);}
+ box(2,4.2,3.8,'#7d807c',-23.2,2.1,-61.5,solid);
+ for(let n=0;n<12;n++){const h=4.2+rise*(n+1);box(run,h,1.8,'#7d807c',-22.2+n*run+run/2,h/2,-60.5,solid);}
+ for(const [x,y,zz,len]of [[-19.1,3.2,-63.45,6],[-19.1,7.4,-61.45,6]])box(len,.06,.06,'#3b4246',x,y,zz);
+ box(.12,1.1,1.8,'#3b4246',-15.95,8.95,-60.5,solid);box(.12,1.1,3.2,'#3b4246',-14.95,8.95,-58,solid);
+ const sign=game.label('AFTER HOURS STATION','#f3e2b8',4.5,-20,9.9,-59.7,30);sign.rotation.y=Math.PI;
+ // East lot: fenced parking under the tracks.
+ for(let x=15.5;x<25.5;x+=.6)box(.05,1.4,.05,'#4a5154',x,.7,-60.6);
+ box(.05,.05,10,'#4a5154',15.2,1.35,-55);
+ game.rail={minX:RAIL.minX,maxX:RAIL.maxX,z};
 }

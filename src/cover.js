@@ -5,14 +5,25 @@ export function findCover(game,p){
 }
 export function toggleCover(game){
   const p=game.player;p.crouched=!p.crouched;p.coverBox=p.crouched?findCover(game,p):null;p.peek=false;
+  // Step into cover: glide to the nearest face of the barricade instead of
+  // crouching wherever the player happened to be standing.
+  p.coverSnap=null;
+  if(p.coverBox){const b=p.coverBox,pos=p.group.position;const target=new THREE.Vector3(THREE.MathUtils.clamp(pos.x,b.min.x-.5,b.max.x+.5),pos.y,THREE.MathUtils.clamp(pos.z,b.min.z-.5,b.max.z+.5));if(target.distanceTo(pos)>.15)p.coverSnap=target;}
+}
+export function updateCoverSnap(game,p,dt,moving){
+  if(!p.coverSnap)return false;
+  if(moving||!p.crouched){p.coverSnap=null;return false;}
+  const delta=p.coverSnap.clone().sub(p.group.position).setY(0),d=delta.length();
+  if(d<.05){p.coverSnap=null;return false;}
+  game.moveWithCollision(p,delta.setLength(Math.min(d,6.5*dt)));return true;
 }
 export function posture(p,dt,{crouched=p.crouched,peek=p.peek,lean=0,armsShift=0,sliding=false,moving=false,time=0}={}){
   // Bend hips and knees. Neither the body nor any limb changes scale.
-  p.body.scale.set(1,1,1);p.arms.position.x=THREE.MathUtils.damp(p.arms.position.x,armsShift,18,dt);
+  p.body.scale.set(1,1,1);p.postureManaged=true;p.arms.position.x=THREE.MathUtils.damp(p.arms.position.x,armsShift,18,dt);
   p.body.position.y=THREE.MathUtils.damp(p.body.position.y,sliding?-.55:crouched?peek&&!lean?-.04:-.32:0,18,dt);
   p.arms.position.y=THREE.MathUtils.damp(p.arms.position.y,peek&&!lean?1.9:1.5,18,dt);
   p.body.position.x=THREE.MathUtils.damp(p.body.position.x,lean,18,dt);
-  p.body.rotation.x=THREE.MathUtils.damp(p.body.rotation.x,sliding?.16:crouched?.1:0,16,dt);
+  p.body.rotation.x=THREE.MathUtils.damp(p.body.rotation.x,sliding?.16:crouched?.1:(p.lean||0),crouched||sliding?16:8,dt);
   p.legs.forEach((leg,i)=>{
     leg.rotation.x=THREE.MathUtils.damp(leg.rotation.x,sliding?1.35:crouched?-.95:leg.rotation.x,14,dt);
     if(leg.userData.shin)leg.userData.shin.rotation.x=THREE.MathUtils.damp(leg.userData.shin.rotation.x,crouched?1.55:0,14,dt);

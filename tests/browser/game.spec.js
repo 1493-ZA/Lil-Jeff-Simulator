@@ -178,7 +178,7 @@ test('Mission 1 completes only on its last opp and automatically rewards and sta
   await page.waitForFunction(()=>window.__game.stage===1);
   expect(await page.evaluate(()=>window.__game.characters[0].kills)).toBe(3);
   await page.evaluate(()=>window.__game.player.group.position.set(-11,0,-23));
-  await expect(page.locator('#interaction')).toContainText('SWITCH TO LIL DOOM');
+  await expect(page.locator('#required-character')).toContainText('SWITCH TO Lil doom');await expect(page.locator('#interaction')).toBeHidden();
   await page.keyboard.press('KeyE');
   expect(await page.evaluate(()=>window.__game.rap)).toBeNull();
   await page.keyboard.press('Digit2');

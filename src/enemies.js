@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {animateLocomotion} from './animation.js';
 import { safeFooting } from './companions.js';
+import { plantOnGround } from './ground.js';
 
 export function moveEnemy(game,enemy,dt) {
   const pos=enemy.group.position;
@@ -13,19 +14,22 @@ export function moveEnemy(game,enemy,dt) {
     if(!game.driving && enemy.special && pos.distanceTo(target)<18 && pos.distanceTo(target)>9) {
       goal=target.clone().add(pos.clone().sub(target).setY(0).normalize().multiplyScalar(7));
     }
+    // Converging rivals (high heat, chases) close in to firing distance.
+    if(enemy.chase&&!game.driving&&pos.distanceTo(target)>8)goal=target.clone().add(pos.clone().sub(target).setY(0).normalize().multiplyScalar(7));
     goal.x=THREE.MathUtils.clamp(goal.x,game.street?-23:-8,game.street?75:8);goal.y=0;
     if(safeFooting(game,goal))enemy.moveGoal=goal;
-    enemy.moveTimer=1.2;
+    enemy.moveTimer=enemy.chase?.6:1.2;
   }
   const delta=(enemy.moveGoal || pos).clone().sub(pos).setY(0);
   let moving=false;
   if(delta.length()>.35) {
     delta.normalize();
     for(const angle of [0,.8,-.8,1.5,-1.5]) {
-      const step=delta.clone().applyAxisAngle(new THREE.Vector3(0,1,0),angle).multiplyScalar((enemy.special?2:1.35)*dt);
+      const step=delta.clone().applyAxisAngle(new THREE.Vector3(0,1,0),angle).multiplyScalar((enemy.chase?2.8:enemy.special?2:1.35)*dt);
       if(!safeFooting(game,pos.clone().add(step)))continue;
       game.moveWithCollision(enemy,step);moving=true;break;
     }
   }
+  plantOnGround(enemy,dt);
   animateLocomotion(enemy,dt,{aiming:true});
 }
