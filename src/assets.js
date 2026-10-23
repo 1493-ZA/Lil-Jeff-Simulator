@@ -39,10 +39,14 @@ export async function swapProps(game,path,fallback,placements,options={}){
 // the model is turned 180°, the code-built gun is hidden, and the gun's
 // muzzle/flash move to the model's real barrel tip (shots start there).
 const WEAPON_FILES={draco:'draco',arp:'arp',switch:'switch',akimbo:'switch'};
+// Characters are stylized (about 2.1 m, chunky hands), so real-size guns read as
+// toys. Each model is scaled to the length of the gun it replaces.
+const WEAPON_LENGTH={draco:.8,arp:1.02,switch:.34,akimbo:.34};
 export async function upgradeWeapon(game,id,gun){
  if(game.quality==='low')return false;
  const gltf=await loadModel(`weapons/${WEAPON_FILES[id]}.glb`);if(!gltf||!gun.group.parent)return false;
  const model=gltf.scene.clone(true);model.rotation.y=Math.PI;model.name=`weapon model ${id}`;
+ gltf.length??=new THREE.Box3().setFromObject(gltf.scene).getSize(new THREE.Vector3()).z;model.scale.setScalar(WEAPON_LENGTH[id]/Math.max(gltf.length,.01));
  model.traverse(m=>{if(m.isMesh){m.castShadow=true;m.userData.weaponPart=true;}});
  gun.group.children.filter(c=>c.isMesh).forEach(c=>c.visible=false);
  gun.group.add(model);model.updateMatrixWorld(true);
