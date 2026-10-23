@@ -1,25 +1,6 @@
 import * as THREE from 'three';
 
 // Deterministic, locally generated surface maps; no external image downloads.
-export function streetMaterial() {
-  const canvas=document.createElement('canvas');canvas.width=canvas.height=512;
-  const ctx=canvas.getContext('2d');
-  const image=ctx.createImageData(512,512);
-  let seed=629;
-  const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
-  for(let i=0;i<image.data.length;i+=4){const tone=47+random()*32;image.data[i]=tone;image.data[i+1]=tone+2;image.data[i+2]=tone+5;image.data[i+3]=255;}
-  ctx.putImageData(image,0,0);
-  ctx.strokeStyle='#262a30';ctx.lineWidth=1.2;
-  for(let i=0;i<22;i++){
-    let x=random()*512,y=random()*512;ctx.beginPath();ctx.moveTo(x,y);
-    for(let j=0;j<8;j++){x+=(random()-.5)*35;y+=random()*24;ctx.lineTo(x,y);}ctx.stroke();
-  }
-  const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;
-  map.wrapS=map.wrapT=THREE.RepeatWrapping;map.repeat.set(4,12);map.anisotropy=4;
-  const bump=map.clone();bump.colorSpace=THREE.NoColorSpace;
-  return new THREE.MeshStandardMaterial({color:'#a6a8ac',map,bumpMap:bump,bumpScale:.035,roughness:.64,metalness:.15});
-}
-
 export function addSky(game) {
   const canvas=document.createElement('canvas');canvas.width=16;canvas.height=256;
   const ctx=canvas.getContext('2d');

@@ -2,23 +2,28 @@ import * as THREE from 'three';
 import {batchStatic} from './quality.js';
 import {buildCar} from './models.js';
 import {registerParkedCar} from './carjack.js';
+import {FacadeBatch,surface,addWindow,addShutter} from './facades.js';
 // Compact second block reached through the passage at z=-31. Render batches
 // are local to each building so the renderer can cull individual lots.
-export function buildDistrict(game,brick){
+export function buildDistrict(game){
  const root=new THREE.Group();root.name='Commerce Row and Rival Block';game.scene.add(root);
  const box=(w,h,d,c,x,y,z,solid=false,parent=root)=>game.box(w,h,d,c,x,y,z,{parent,solid});
- box(54,.18,104,'#616260',52,-.14,-29);
- box(54,.12,6,'#62676a',35,-.04,-31);box(18,.1,101,'#414850',56,-.06,-29);
- for(const x of [45.5,66.5])box(3,.14,100,'#96938a',x,.01,-29);
+ const facade=new FacadeBatch(),asphalt=surface(game,'street/asphalt',{color:'#c9c9c9'}),sidewalk=surface(game,'street/sidewalk',{color:'#d8d4cc'});
+ facade.add(surface(game,'street/asphalt',{color:'#8e8e8a'}),54,.18,104,52,-.14,-29);
+ facade.add(sidewalk,54,.12,6,35,-.04,-31);facade.add(asphalt,18,.1,101,56,-.06,-29);
+ for(const x of [45.5,66.5]){facade.add(sidewalk,3,.14,100,x,.01,-29);facade.add(surface(game,'street/curb',{color:'#cfcac0'}),.2,.2,100,x+(x<56?1.6:-1.6),.03,-29);}
  for(let z=15;z>-79;z-=7)box(.12,.015,3,'#b7aa79',56,.01,z);
  for(const side of [-1,1])for(let i=0;i<5;i++){
   const z=8-i*20;if(side<0&&(i===0||i===2))continue;
   const x=56+side*17,h=6+(i%3)*2;
   const lot=new THREE.Group();root.add(lot);
-  const wall=box(10,h,14,i%2?'#73685f':'#8b6b5b',x,h/2,z,true,lot);wall.material.map=brick.map;wall.material.bumpMap=brick.bumpMap;wall.material.bumpScale=.04;
-  box(10.4,.2,14.4,'#373d44',x,h,z,false,lot);
-  for(let f=0;f<2;f++)for(let n=-1;n<=1;n++){box(.06,1.5,1.3,'#374c60',x-side*5.05,2+f*2.5,z+n*4,false,lot);box(.09,.1,1.5,'#b4aca0',x-side*5.1,1.2+f*2.5,z+n*4,false,lot);}
-  box(.1,2.3,1.2,'#263d5e',x-side*5.1,1.2,z,false,lot);batchStatic(lot);
+  // Brick lots: shuttered storefronts at street level, framed windows above.
+  const lotFacade=new FacadeBatch(),face=x-side*5,out=-side;
+  lotFacade.add(surface(game,'building/'+(i%2?'brick-dark':'brick-red')),10,h,14,x,h/2,z,{collider:game.colliders});
+  lotFacade.add(surface(game,'building/concrete-trim',{color:'#9a958d'}),10.4,.2,14.4,x,h,z);
+  for(const n of [-1,1])addShutter(lotFacade,game,{x:face,z:z+n*4,side:out,h:2.3});
+  for(let f=1;f<Math.max(2,Math.floor(h/2.5));f++)for(let n=-1;n<=1;n++)addWindow(lotFacade,game,{x:face,y:2+f*2.5,z:z+n*4,side:out,h:1.5,w:1.3,lit:(n+f+i+side)%3===0});
+  box(.1,2.3,1.2,'#263d5e',x-side*5.1,1.2,z,false,lot);lotFacade.flush(lot,'district facade');batchStatic(lot);
  }
  const sign=game.label('COMMERCE ROW','#e6d7a8',6,33,3,-31,30);sign.name='neutral district sign';
  const rival=game.label('OPP BLOCK','#72a9ff',5,56,4,-54,34);rival.name='rival district sign';
@@ -47,5 +52,5 @@ export function buildDistrict(game,brick){
  }
  for(const x of [28,69])for(let n=0;n<8;n++)box(.035,1.7,.035,'#7d8582',x,.85,-58+n*.3);
  const mural=game.label('MAKE SOMETHING / AFTER HOURS','#c792eb',5,26.3,3,-64,24);mural.rotation.y=Math.PI/2;
- batchStatic(root);game.district=root;
+ facade.flush(root,"district street");batchStatic(root);game.district=root;
 }

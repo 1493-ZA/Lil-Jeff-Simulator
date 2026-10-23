@@ -3,7 +3,8 @@ import {buildDistrict} from './district.js';
 import { OBJECTIVES, DRIVE_ROUTE } from './mission.js';
 import { buildCar } from './models.js';
 import { registerParkedCar } from './carjack.js';
-import { streetMaterial, addSky } from './surfaces.js';
+import { addSky } from './surfaces.js';
+import { FacadeBatch, surface, addWindow, addShutter } from './facades.js';
 import { decorateTerritories } from './territory.js';
 import { swapProps } from './assets.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -30,31 +31,16 @@ export function buildNeighborhood(game) {
     batches.get(key).items.push({w,h,d,x,y,z});
     if (solid) game.colliders.push(new THREE.Box3(new THREE.Vector3(x-w/2,y-h/2,z-d/2),new THREE.Vector3(x+w/2,y+h/2,z+d/2)));
   }
-  const brickCanvas = document.createElement('canvas');
-  brickCanvas.width=256; brickCanvas.height=128;
-  const ctx=brickCanvas.getContext('2d');
-  ctx.fillStyle='#78675d'; ctx.fillRect(0,0,256,128);
-  for(let row=0;row<8;row++) for(let col=-1;col<8;col++) {
-    ctx.fillStyle=['#9b5946','#9f604b','#8d4f40','#aa6950'][(row*7+col+8)%4];
-    ctx.fillRect(col*40+(row%2)*20,row*16+1,38,14);
-    for(let k=0;k<18;k++){ctx.fillStyle=k%2?'#392e282c':'#e7c5a220';ctx.fillRect(col*40+(row%2)*20+(k*17%37),row*16+2+(k*5%12),2,1);}
+  // Textured street, sidewalks, curbs and facades (public/textures).
+  const facade=new FacadeBatch();
+  facade.add(surface(game,'street/asphalt',{color:'#c9c9c9',roughness:1}),58,.5,108,0,-.26,-28);
+  for(const side of [-1,1]){
+    facade.add(surface(game,'street/sidewalk',{color:'#d8d4cc'}),6,.16,106,side*12,.02,-28);
+    facade.add(surface(game,'street/curb',{color:'#cfcac0'}),.2,.25,106,side*9,.06,-28);
   }
-  const brickTexture=new THREE.CanvasTexture(brickCanvas);
-  brickTexture.colorSpace=THREE.SRGBColorSpace;
-  brickTexture.wrapS=brickTexture.wrapT=THREE.RepeatWrapping;
-  brickTexture.repeat.set(2,2);
-  const bump=brickTexture.clone();bump.colorSpace=THREE.NoColorSpace;
-  const brick=game.material('#ad9388',{map:brickTexture,bumpMap:bump,bumpScale:.065,roughness:.96});
-  box(58,.5,108,'#asphalt',0,-.26,-28,false,streetMaterial());
-  box(6,.16,106,'#92918b',-12,.02,-28);
-  box(6,.16,106,'#92918b',12,.02,-28);
-  box(.2,.25,106,'#c0b4a2',-9,.06,-28);
-  box(.2,.25,106,'#c0b4a2',9,.06,-28);
   for(let z=19;z>-81;z-=5) {
     box(.12,.012,2.2,'#c4a96b',-.14,.01,z);
     box(.12,.012,2.2,'#c4a96b',.14,.01,z);
-    box(5.6,.018,.055,'#797e81',-12,.115,z);
-    box(5.6,.018,.055,'#797e81',12,.115,z);
   }
   for(const [x,z] of [[3,4],[-4,-19],[2,-40],[-2,-65]]){const puddle=new THREE.Mesh(new THREE.CircleGeometry(1,32),game.material('#35414a',{roughness:.14,metalness:.45,transparent:true,opacity:.6}));puddle.rotation.x=-Math.PI/2;puddle.scale.set(1.7,.7,1);puddle.position.set(x,.021,z);game.scene.add(puddle);}
   // Street furniture: manholes, kerb drains, stop lines, hydrants, AC units
@@ -77,18 +63,20 @@ export function buildNeighborhood(game) {
     const z=9-i*16;
     const x=side*20;
     const h=9+(i%3)*1.8;
-    box(11,h,12,'#brick',x,h/2,z,true,brick);
-    box(11.4,.3,12.4,'#514541',x,h,z);
-    box(11.3,.25,12.3,'#b49f84',x,h-.6,z);
-    for(let floor=0;floor<3;floor++) for(let j=0;j<3;j++) {
-      const wz=z-4+j*4;
-      box(.08,1.9,1.35,'#2d3744',side*14.44,2.2+floor*2.8,wz);
-      box(.09,.09,1.55,'#c1af91',side*14.38,1.2+floor*2.8,wz);
-      box(.09,2.05,.07,'#b09a81',side*14.38,2.2+floor*2.8,wz);
-      if((j+floor+i)%3!==0) box(.1,1.55,1.05,'#c38e56',side*14.35,2.2+floor*2.8,wz);
+    // Red brick walls (two brick types alternate), concrete cornice, framed
+    // upper windows (some lit) and rusty roll-down shutters on the ground floor.
+    const trim=surface(game,'building/concrete-trim',{color:'#bdb3a4'});
+    facade.add(surface(game,'building/'+((i+(side>0))%2?'brick-dark':'brick-red')),11,h,12,x,h/2,z,{collider:game.colliders});
+    facade.add(trim,11.4,.3,12.4,x,h,z);facade.add(trim,11.3,.25,12.3,x,h-.6,z);
+    const face=side*14.5,out=-side;
+    for(let floor=1;floor<3;floor++) for(let j=0;j<3;j++) {
+      const wz=z-4+j*4,lit=(j*2+floor+i)%4===1;
+      addWindow(facade,game,{x:face,y:2.2+floor*2.8,z:wz,side:out,lit});
+      if(!lit&&(j+floor+i)%3!==0) box(.04,1.2,1.05,'#c38e56',face+out*.01,2.35+floor*2.8,wz);
     }
+    for(const dz of [-4,4]) addShutter(facade,game,{x:face,z:z+dz,side:out});
     box(.1,2.4,1.2,'#3b3432',side*14.4,1.25,z);
-    for(let floor=0;floor<3;floor++)box(.12,.08,12.2,'#9c8a76',side*14.5,3.6+floor*2.8,z);
+    for(let floor=0;floor<3;floor++)facade.add(trim,.14,.12,12.2,side*14.53,3.6+floor*2.8,z);
     if(i%2===0){box(.6,.45,.7,'#a7aba6',side*14.15,5.3,z-4);box(.62,.06,.72,'#7c807b',side*14.15,5.55,z-4);}
     for(let step=0;step<3;step++) box(1.1,.18*(step+1),2,'#8b8376',side*(13.2+step*.35),.09*(step+1),z,true);
     for(const dz of [-6.5,6.5]) {
@@ -153,7 +141,8 @@ export function buildNeighborhood(game) {
     label.visible=false;
     return {ring,label};
   });
-  buildDistrict(game,brick);decorateTerritories(game);
+  facade.flush(game.scene,'textured street and facades');
+  buildDistrict(game);decorateTerritories(game);
   const dummy=new THREE.Object3D();
   const geometry=new THREE.BoxGeometry(1,1,1);
   for(const {material,items} of batches.values()) {
