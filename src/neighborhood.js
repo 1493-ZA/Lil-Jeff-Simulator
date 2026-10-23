@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {buildDistrict} from './district.js';
 import { OBJECTIVES, DRIVE_ROUTE } from './mission.js';
 import { buildCar } from './models.js';
+import { registerParkedCar } from './carjack.js';
 import { streetMaterial, addSky } from './surfaces.js';
 import { decorateTerritories } from './territory.js';
 import { swapProps } from './assets.js';
@@ -112,7 +113,7 @@ export function buildNeighborhood(game) {
   // the red car keeps our block's colour as a tint.
   for(const [x,z,color,turn,model,tint] of [[-7,2,'#76625b',0,'muscle-1'],[7,-13,'#3f5268',1,'sedan-1'],[-7,-32,'#a3302b',0,'muscle-2','#c23a32'],[7,-61,'#726e59',1,'sedan-1']]) {
     const parked=buildCar(game,[x,0,z],{paint:color,parked:true,detail:game.quality==='high',model,tint});parked.group.rotation.y=turn*Math.PI;parked.group.name='parked car';
-    game.colliders.push(new THREE.Box3(new THREE.Vector3(x-1.2,0,z-2.5),new THREE.Vector3(x+1.2,1.8,z+2.5)));
+    registerParkedCar(game,parked,new THREE.Box3(new THREE.Vector3(x-1.2,0,z-2.5),new THREE.Vector3(x+1.2,1.8,z+2.5)));
   }
   for(let z=14;z>-82;z-=23) for(const side of [-1,1]) {
     const x=side*10.8;
