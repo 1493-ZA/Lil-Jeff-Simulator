@@ -404,7 +404,8 @@ test('normal opps and the Special Opp patrol with moving legs and attached marke
     return [g.enemies[0],g.enemies.find(e=>e.special)].every((e,i)=>Math.hypot(e.group.position.x-points[i].x,e.group.position.z-points[i].z)>1);
   },before);
   await page.waitForFunction(()=>window.__game.enemies.some(e=>e.legs.some(l=>Math.abs(l.rotation.x)>.1)));
-  expect(await page.evaluate(()=>{const e=window.__game.enemies.find(e=>e.special);return Math.abs(e.badge.position.x-e.group.position.x)+Math.abs(e.badge.position.z-e.group.position.z);})).toBeLessThan(.1);
+  // Named rivals carry a small HUD tag (shown only in line of sight) instead of a world billboard.
+  expect(await page.evaluate(()=>{const e=window.__game.enemies.find(e=>e.special);return{alias:e.alias,badge:e.badge??null};})).toEqual({alias:'Static',badge:null});
 });
 
 test('crew fires autonomously, driver shoots one-handed while steering, and AI driving can run over opps',async({page})=>{
