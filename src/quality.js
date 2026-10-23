@@ -9,7 +9,7 @@ export function batchStatic(group,recursive=false){
   if(!batches.has(key))batches.set(key,[]);batches.get(key).push(mesh);
  }
  for(const meshes of batches.values()){
-  if(meshes.length<2)continue;const pieces=meshes.map(m=>m.geometry.clone().toNonIndexed().applyMatrix4(inverse.clone().multiply(m.matrixWorld)));const geometry=mergeGeometries(pieces);pieces.forEach(g=>g.dispose());if(!geometry)continue;
+  if(meshes.length<2)continue;const pieces=meshes.map(m=>(m.geometry.index?m.geometry.toNonIndexed():m.geometry.clone()).applyMatrix4(inverse.clone().multiply(m.matrixWorld)));const geometry=mergeGeometries(pieces);pieces.forEach(g=>g.dispose());if(!geometry)continue;
   const combined=new THREE.Mesh(geometry,meshes[0].material);combined.castShadow=true;combined.receiveShadow=true;combined.name='batched static detail';group.add(combined);
   for(const [i,m]of meshes.entries()){m.removeFromParent();m.geometry.dispose();if(i)m.material.dispose();}
  }

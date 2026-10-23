@@ -91,37 +91,83 @@ export function buildWeapon(game, id, parent, x) {
   batchStatic(group);return { group, muzzle, flash, recoil: 0, flashTime: 0 };
 }
 
-export function buildCar(game, position = [4, 0, -38]) {
+// The driver door is on the car's left (-X) side, hinged at its front edge.
+// Rotating about +Y by a negative angle swings the rear edge outward (-X).
+export const DOOR_OPEN=-1.05;
+// Side profile (z, y) extruded across the car's width with a soft bevel gives
+// rounded hood, nose, trunk and wheel arches instead of stacked boxes.
+function profile(points){
+ const shape=new THREE.Shape();shape.moveTo(points[0][0],points[0][1]);
+ for(const p of points.slice(1)){
+  if(p.arc){shape.absarc(p.arc[0],p.arc[1],p.arc[2],p.arc[3],p.arc[4],p.arc[5]);continue;}
+  const [z,y,cz,cy]=p;if(cz!==undefined)shape.quadraticCurveTo(cz,cy,z,y);else shape.lineTo(z,y);
+ }
+ shape.closePath();return shape;
+}
+function extrudeSide(shape,width,bevel,detail){
+ const g=new THREE.ExtrudeGeometry(shape,{depth:width-bevel*2,bevelEnabled:true,bevelThickness:bevel,bevelSize:bevel,bevelSegments:detail?4:2,curveSegments:detail?14:6});
+ // Shape x → car z, extrusion → car x (centred).
+ g.rotateY(-Math.PI/2);g.translate((width-bevel*2)/2,0,0);g.computeVertexNormals();return g;
+}
+const ARCH=.53,ARCH_Y=.45,ARCH_DX=Math.sqrt(ARCH*ARCH-.09*.09),ARCH_A=Math.atan2(.09,ARCH_DX);
+export function buildCar(game, position = [4, 0, -38], {paint='#343340',roof=null,trim='#1a1d22',detail=true,parked=false}={}) {
   const group = new THREE.Group();
   group.position.set(...position);
   group.name = 'Z78 getaway sedan';
   game.scene.add(group);
-  const box = (w,h,d,color,x,y,z) => {const mesh=game.box(w,h,d,color,x,y,z,{parent:group,roughness:.3,metalness:.45});mesh.geometry.dispose();mesh.geometry=new RoundedBoxGeometry(w,h,d,3,Math.min(.07,w/4,h/4,d/4));return mesh;};
-  box(2.5,.65,4.8,'#343340',0,.9,0);
-  // Pillars and roof rails leave a genuine opening above the cabin.
-  for(const x of [-1.05,1.05]){box(.13,.85,.16,'#242735',x,1.58,-1.1);box(.13,.85,.16,'#242735',x,1.58,1.3);box(.28,.1,2.5,'#303640',x,1.99,.1);}
-  box(1.85,.1,.45,'#303640',0,1.99,-.9);box(1.85,.1,.55,'#303640',0,1.99,1.08);
-  for(const x of [-.55,.55]){box(.65,.75,.55,'#181e24',x,1.1,-.45);box(.65,.7,.25,'#181e24',x,1.35,.75);}
-  for(const x of [-1.28,1.28]){box(.25,.16,.35,'#26333c',x,1.6,-.8);box(.05,.045,.3,'#a5a9aa',x,1.12,.35);}
-  const windshield=box(2.05,.6,.03,'#7998a4',0,1.64,-1.12);windshield.material.transparent=true;windshield.material.opacity=.32;
-  box(2.05,.6,.03,'#49636c',0,1.64,1.32);
+  const high=detail&&game.quality!=='low';
+  const paintMat=()=>high?new THREE.MeshPhysicalMaterial({color:paint,roughness:.32,metalness:.5,clearcoat:.8,clearcoatRoughness:.18}):game.material(paint,{roughness:.35,metalness:.45});
+  const mesh=(geometry,material,x=0,y=0,z=0,parent=group)=>{const m=new THREE.Mesh(geometry,material);m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;parent.add(m);return m;};
+  const rounded=(w,h,d,color,x,y,z,r=.06,extra={},parent=group)=>mesh(new RoundedBoxGeometry(w,h,d,high?3:1,Math.min(r,w/2.2,h/2.2,d/2.2)),game.material(color,{roughness:.4,metalness:.35,...extra}),x,y,z,parent);
+  // Front clip (nose + hood) and rear clip (trunk), each with a wheel arch.
+  const front=profile([[-.9,.36],[-1.5+ARCH_DX,.36],{arc:[-1.5,ARCH_Y,ARCH,-ARCH_A,Math.PI+ARCH_A,false]},[-2.32,.36],[-2.46,.62,-2.5,.42],[-2.36,.92,-2.47,.88],[-.9,1.08,-1.6,1.1]]);
+  const rear=profile([[.9,.36],[.9,1.12],[2.3,1.06,1.7,1.13],[2.46,.7,2.47,1.0],[2.32,.36,2.47,.42],[1.5+ARCH_DX,.36],{arc:[1.5,ARCH_Y,ARCH,-ARCH_A,Math.PI+ARCH_A,false]}]);
+  mesh(extrudeSide(front,2.36,.1,high),paintMat());mesh(extrudeSide(rear,2.36,.1,high),paintMat());
+  // Rockers, passenger door, roof rails, pillars (with an open sunroof above).
+  for(const x of [-1.1,1.1])rounded(.18,.24,1.82,paint,x,.48,0,.07);
+  rounded(.09,.62,1.76,paint,1.17,.86,0,.04);
+  for(const x of [-.98,.98]){rounded(.11,.82,.12,trim,x,1.43,-.64,.04).rotation.x=.7;rounded(.11,.74,.12,trim,x,1.44,.71,.04).rotation.x=-.61;rounded(.2,.09,.95,paint,x,1.76,.05,.04);}
+  rounded(1.86,.09,.22,paint,0,1.76,-.32,.04);rounded(1.86,.09,.22,paint,0,1.76,.42,.04);
+  const glass=new THREE.MeshPhysicalMaterial({color:'#7d9aa6',roughness:.08,metalness:.2,transparent:true,opacity:.3,depthWrite:false});
+  const windshield=mesh(new THREE.PlaneGeometry(1.86,.81),glass,0,1.43,-.64);windshield.rotation.x=.7;windshield.castShadow=false;
+  const backlight=mesh(new THREE.PlaneGeometry(1.86,.73),glass,0,1.44,.71);backlight.rotation.x=-.61;backlight.castShadow=false;
   const windowMeshes=[];
-  for (const x of [-1.12,1.12]) {const glass=box(.025,.55,1.9,'#71929d',x,1.65,.05);glass.material.transparent=true;glass.material.opacity=.24;windowMeshes.push(glass);}
-  box(2.3,.1,.12,'#b2b6b3',0,.65,-2.4);
-  for (const x of [-.85,.85]) {
-    box(.5,.18,.07,'#ffe0ae',x,1,-2.43);
-    box(.5,.15,.07,'#d25f59',x,1,2.43);
+  for(const x of [-1.13,1.13]){const side=mesh(new THREE.PlaneGeometry(1.42,.5),glass,x,1.43,.03);side.rotation.y=Math.PI/2;side.castShadow=false;windowMeshes.push(side);}
+  // Bumpers, grille, lights, plate, mirrors.
+  rounded(2.38,.26,.28,trim,0,.48,-2.44,.11);rounded(2.38,.26,.28,trim,0,.48,2.44,.11);
+  rounded(1.1,.2,.06,'#0e1114',0,.68,-2.48,.05);
+  const headlight=game.material('#fff1cf',{emissive:'#ffe2a8',emissiveIntensity:1.2,roughness:.2});
+  const taillight=game.material('#c63a35',{emissive:'#ff2a1f',emissiveIntensity:.9,roughness:.25});
+  for(const x of [-.82,.82]){mesh(new RoundedBoxGeometry(.46,.15,.08,2,.04),headlight,x,.84,-2.4);mesh(new RoundedBoxGeometry(.5,.13,.08,2,.04),taillight,x,.9,2.42);}
+  rounded(.42,.14,.03,'#d9d6c8',0,.55,2.57,.02);
+  const details=new THREE.Group();details.name='car detail';group.add(details);
+  for(const x of [-1.27,1.27]){rounded(.06,.05,.1,trim,x*.97,1.15,-.8,.02,{},details);rounded(.16,.12,.24,paint,x,1.18,-.84,.05,{},details);}
+  // Door seams and handles on the passenger side (driver door has its own).
+  rounded(.02,.6,.02,'#111317',1.215,.86,-.88,.01,{},details);rounded(.02,.6,.02,'#111317',1.215,.86,.88,.01,{},details);rounded(.03,.04,.16,'#b9bcb8',1.22,1.0,.5,.015,{},details);
+  // Interior: seats, rear bench, dashboard and steering wheel.
+  if(high&&!parked){
+   for(const x of [-.5,.5]){rounded(.55,.16,.5,'#22262c',x,.78,-.3,.05,{},details);rounded(.55,.6,.14,'#22262c',x,1.07,-.02,.05,{},details);}
+   rounded(1.8,.16,.45,'#22262c',0,.78,.55,.05,{},details);rounded(1.8,.48,.14,'#22262c',0,1.03,.78,.05,{},details);
+   rounded(1.9,.2,.3,'#181b20',0,1.1,-.8,.05,{},details);
+   const wheel=mesh(new THREE.TorusGeometry(.17,.025,6,18),game.material('#121418'),-.5,1.2,-.62,details);wheel.rotation.x=-.45;
   }
-  const door=new THREE.Group();door.name='animated driver door';door.position.set(-1.23,1.22,-1.02);group.add(door);
-  const panel=box(.08,.6,1.7,'#343340',-1.23,1.22,-.16);door.attach(panel);door.attach(windowMeshes[0]);
-  const trim=box(.09,.06,1.7,'#9a9e9b',-1.26,1.47,-.16);door.attach(trim);
-  const wheels = [];
-  for (const x of [-1.23,1.23]) for (const z of [-1.5,1.5]) {
-    const wheel = game.cylinder(.44,.22,'#151d25',x,.5,z,group);
-    wheel.rotation.z = Math.PI / 2;
-    wheels.push(wheel);
-    const hub = game.cylinder(.22,.24,'#8b8e92',x,.5,z,group);
-    hub.rotation.z = Math.PI / 2;
+  // Animated driver door: panel, window, trim line and handle on a front hinge.
+  const door=new THREE.Group();door.name='animated driver door';door.position.set(-1.17,.86,-.88);group.add(door);
+  const panel=rounded(.09,.62,1.76,paint,-1.17,.86,0,.04);door.attach(panel);door.attach(windowMeshes[0]);
+  const trimLine=rounded(.03,.04,1.64,'#9a9e9b',-1.22,1.13,0,.015);door.attach(trimLine);
+  const handle=rounded(.03,.04,.16,'#b9bcb8',-1.22,1.0,.5,.015);door.attach(handle);
+  // Wheels: rounded tyre profile with a five-spoke rim. The tyre mesh is the
+  // hit target for pursuit shots; rims ride on it.
+  const tyreShape=[[.22,-.12],[.4,-.13],[.44,-.08],[.45,0],[.44,.08],[.4,.13],[.22,.12]].map(([r,y])=>new THREE.Vector2(r,y));
+  const tyreGeometry=new THREE.LatheGeometry(tyreShape,high?20:10);const rubber=game.material('#141619',{roughness:.9});
+  const wheels=[];
+  for (const x of [-1.12,1.12]) for (const z of [-1.5,1.5]) {
+    const wheel=mesh(tyreGeometry,rubber,x,.45,z);wheel.rotation.z=Math.PI/2;wheels.push(wheel);
+    const rim=mesh(new THREE.CylinderGeometry(.24,.24,.235,high?16:8),game.material('#b5b9bd',{metalness:.8,roughness:.28}),0,0,0,wheel);
+    if(high)for(let n=0;n<5;n++){const spoke=mesh(new THREE.BoxGeometry(.05,.03,.4),game.material('#2a2d31',{metalness:.6,roughness:.4}),0,x>0?-.122:.122,0,wheel);spoke.rotation.y=n*Math.PI*2/5;}
+    rim.castShadow=false;
   }
-  return { group, wheels, windowMeshes, door, lockState:'locked', speed: 0, yaw: 0, gate: 0, integrity: 100, collisionCooldown: 0 };
+  if(roof)group.traverse(m=>{if(m.isMesh&&m.position.y>1.6&&m!==windshield)m.material=game.material(roof,{roughness:.35,metalness:.3});});
+  batchStatic(group);batchStatic(details);
+  return { group, wheels, windowMeshes, door, details, roofY:1.79, lockState:'locked', speed: 0, yaw: 0, gate: 0, integrity: 100, collisionCooldown: 0 };
 }

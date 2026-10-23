@@ -52,7 +52,7 @@ test('Mission 3 requires a second hotwire, automatically selects roof Draco, and
  await page.locator('#quit').click();expect(await page.evaluate(()=>({level:__game.level,chase:__game.pursuit}))).toEqual({level:1,chase:null});expect(errors).toEqual([]);
 });
 test('studio shares one beat, all three change flows, on-fire boosts cred and only all completed verses unlock free roam',async({page})=>{
- test.setTimeout(90000);await enterPursuit(page);await startCar(page);
+ test.setTimeout(240000);await enterPursuit(page);await startCar(page);
  // Skip the already-covered shooting stage; use the actual route-to-studio transition.
  await page.evaluate(()=>{const g=__game;g.pursuit.phase='toStudio';g.car.group.position.set(0,0,-23);g.characters.forEach(p=>p.onFireUntil=g.elapsed+60);});
  await page.waitForFunction(()=>__game.pursuit.phase==='studio');

@@ -1,15 +1,15 @@
 import * as THREE from 'three';
 import { ROSTER, WEAPONS, createLoadout, fireRound, reload, needsReload } from './combat.js';
 import { buildNeighborhood } from './neighborhood.js';
-import { animateLocomotion,acceleratedStep } from './animation.js';
-import { buildHair, buildWeapon } from './models.js';
+import { animateLocomotion,acceleratedStep,weaponCarry } from './animation.js';
+import { buildHair, buildWeapon, DOOR_OPEN } from './models.js';
 import { OBJECTIVES, RAP_PATTERN, RAP_LINES, BEAT_SECONDS, RAP_PASS, DRIVE_ROUTE, combatTarget, combatComplete, beatTime, createRap, judgeRap, advanceCar } from './mission.js';
 
 import { CLAIM_POINTS, livingOpps, missionOneCleared, waveCount, beginClaimBlock, updateClaimBlock, clearClaimProps } from './campaign.js';
 import { clothingMap } from './surfaces.js';
 import { ENEMY_HEALTH, hitLocation, woundDamage } from './combat.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { toggleCover, updateCover, assistAim } from './cover.js';
+import { toggleCover, updateCover, updateCoverSnap, assistAim } from './cover.js';
 import { CrewVoices, killDialogue, combatBarks } from './dialogue.js';
 import { beginPursuit, clearPursuit, launchChase, updateChaseDriving, updatePursuit, pursuitHUD, policeRayHit, judgeStudio } from './pursuit.js';
 import { DrillMusic } from './music.js';
@@ -18,15 +18,20 @@ import { updateVehicleCrew } from './vehicle-crew.js';
 import { updateCompanions } from './companions.js';
 import { XP_CAP, XP_REWARDS, XP_KEY, readCharges, awardCharge, narrationDuration } from './progression.js';
 
-import { updateRapFeedback,rapPresentation,renderNotes } from './performance.js';
+import { updateRapFeedback,rapPresentation,renderNotes,streetRapDone } from './performance.js';
 import {CoopSession} from './network.js';
 import {setQuality,batchStatic} from './quality.js';
 import {streetInteract,clearStreet} from './street.js';
 import {alleyInteract,alleyInstruction} from './alley.js';
 import { ActionInput } from './input.js';
-import { createBypass,circuitInput,renderCircuit,resetEntryPose } from './hotwire.js';
+import { createBypass,circuitInput,renderCircuit,resetEntryPose,PUZZLE_INFO } from './hotwire.js';
 import {updateNavigation} from './navigation.js';
 import { aimPoint, alignWeapon, shotSpread, updateHandling } from './handling.js';
+import { groundHeight, plantOnGround } from './ground.js';
+import { autoDrive, resumeRoute, carExtents } from './driver.js';
+import { beginRagdoll, updateRagdolls } from './ragdoll.js';
+import { impactDroplets, groundStain, updateBlood, clearBlood } from './blood.js';
+import { updateZone, addHeat } from './territory.js';
 
 const $ = selector => document.querySelector(selector);
 const UP = new THREE.Vector3(0, 1, 0);
@@ -89,6 +94,8 @@ export class Game {
     this.narrationDurations=new Map();
     this.lookHold=0;
     this.raycaster = new THREE.Raycaster();
+    // Known before the world is built so models can pick their level of detail.
+    {let saved='medium';try{saved=localStorage.getItem('lil-jeff-quality')||'medium';}catch{}const q=new URLSearchParams(location.search).get('quality')||saved;this.quality=['low','medium','high'].includes(q)?q:'medium';}
     this.buildWorld();this.scene.environment=this.environmentMap;this.scene.environmentIntensity=.38;
     this.buildCrew();
     this.buildEnemies();
@@ -102,7 +109,7 @@ export class Game {
     this.renderer.setAnimationLoop(() => this.tick());
   }
 
-  material(color, extra = {}) { const cloth=['#3c4043','#354d49','#353342','#303a43','#3c444c','#1559de','#2349bd','#0867e4','#244b9f','#1b62e6','#173f96','#2156cb','#1248b5','#2869e8','#183b87'].includes(color);return new THREE.MeshStandardMaterial({ color, roughness: cloth?.94:.72,...(cloth?{map:clothingMap(),bumpMap:clothingMap(),bumpScale:.025}:{}), ...extra }); }
+  material(color, extra = {}) { this.fabric??=new Set(['#3c4043','#354d49','#353342','#303a43','#3c444c','#1559de','#2349bd','#0867e4','#244b9f','#1b62e6','#173f96','#2156cb','#1248b5','#2869e8','#183b87']);const cloth=this.fabric.has(color);return new THREE.MeshStandardMaterial({ color, roughness: cloth?.94:.72,...(cloth?{map:clothingMap(),bumpMap:clothingMap(),bumpScale:.025}:{}), ...extra }); }
 
   box(width, height, depth, color, x, y, z, { solid = false, parent = this.scene, ...extra } = {}) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), this.material(color, extra));
@@ -144,19 +151,22 @@ export class Game {
 
   buildWorld() { buildNeighborhood(this); }
 
-  buildPerson(color, enemy = false, identity = -1) {
+  // `look` (civilians, see npc.js) overrides colours and adds modular hair,
+  // clothing layers and accessories; crew identities are never reproduced.
+  buildPerson(color, enemy = false, identity = -1, look = null) {
     const group = new THREE.Group(), body = new THREE.Group();
     group.add(body);
     const variant=Math.abs(identity)%10;
-    const cloth=enemy?['#1559de','#2349bd','#0867e4','#244b9f','#1b62e6','#173f96','#2156cb','#1248b5','#2869e8','#183b87'][variant]:identity===0?'#3c4043':identity===1?'#354d49':'#353342';
-    const skin=enemy?['#886a58','#634637','#b08a6a','#78513e','#98725c','#553e33'][variant%6]:identity===1?'#9b765b':'#79513d';
+    const cloth=look?.top??(enemy?['#1559de','#2349bd','#0867e4','#244b9f','#1b62e6','#173f96','#2156cb','#1248b5','#2869e8','#183b87'][variant]:identity===0?'#3c4043':identity===1?'#354d49':'#353342');
+    const skin=look?.skin??(enemy?['#886a58','#634637','#b08a6a','#78513e','#98725c','#553e33'][variant%6]:identity===1?'#9b765b':'#79513d');
+    const pants=look?.pants??'#303a43',shoes=look?.shoes??'#202730',sole=look?.sole??'#aba99e';
     const round=(x,y,z,sx,sy,sz,tint,parent=body)=>{
       const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),this.material(tint));
       mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);mesh.castShadow=true;parent.add(mesh);return mesh;
     };
     const torso=new THREE.Mesh(new THREE.LatheGeometry([[.22,-.35],[.235,-.2],[.275,.1],[.295,.24],[.18,.35]].map(([r,y])=>new THREE.Vector2(r,y)),20),this.material(cloth));
-    torso.name='torso';torso.scale.x=enemy?[1,.91,1.08,.96,1.04,.94][variant%6]:1;torso.scale.z=.72;torso.position.y=1.23;torso.castShadow=true;body.add(torso);
-    round(0,.8,.02,.25,.13,.18,'#30363d');
+    torso.name='torso';torso.scale.x=look?.build??(enemy?[1,.91,1.08,.96,1.04,.94][variant%6]:1);torso.scale.z=.72;torso.position.y=1.23;torso.castShadow=true;body.add(torso);
+    round(0,.8,.02,.25,.13,.18,look?pants:'#30363d');
     round(0,1.50,.065,.22,.095,.17,cloth);
     this.box(.016,.56,.025,'#a29887',0,1.22,-.225,{parent:body});
     for(const side of [-1,1]){
@@ -174,7 +184,7 @@ export class Game {
     round(-.102,1.85,-.10,.055,.052,.045,skin);round(.102,1.85,-.10,.055,.052,.045,skin);
     round(0,1.765,-.077,.083,.033,.064,skin);
     round(-.158,1.91,0,.024,.043,.021,skin);round(.158,1.91,0,.024,.043,.021,skin);
-    if(!enemy&&identity===1){
+    if(!enemy&&identity===1&&!look){
       const fade=round(0,2.015,.012,.15,.065,.163,'#151519');fade.name='doom black fade crown';
       const hairline=round(0,1.977,.016,.151,.047,.164,'#272326');hairline.name='doom tapered fade';
       round(0,2.035,.012,.146,.053,.158,'#0e0f12');
@@ -197,27 +207,28 @@ export class Game {
     const hips=new THREE.Group();body.add(hips);
     const legs=[-.17,.17].map(x=>{
       const pivot=new THREE.Group();pivot.position.set(x,.85,0);hips.add(pivot);
-      const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.11,.19,6,12),this.material('#303a43'));
+      const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.11,.19,6,12),this.material(pants));
       leg.position.y=-.18;leg.castShadow=true;pivot.add(leg);
       const shin=new THREE.Group();shin.position.y=-.4;pivot.add(shin);pivot.userData.shin=shin;
-      const calf=new THREE.Mesh(new THREE.CapsuleGeometry(.095,.16,6,12),this.material('#303a43'));calf.position.y=-.16;calf.castShadow=true;shin.add(calf);
-      round(0,0,0,.102,.102,.102,'#303a43',shin);
-      round(0,-.32,-.07,.125,.10,.21,'#202730',shin);
-      this.box(.21,.035,.32,'#aba99e',0,-.39,-.07,{parent:shin});
+      const calf=new THREE.Mesh(new THREE.CapsuleGeometry(.095,.16,6,12),this.material(look?.shorts?skin:pants));calf.position.y=-.16;calf.castShadow=true;shin.add(calf);
+      round(0,0,0,.102,.102,.102,look?.shorts?skin:pants,shin);
+      round(0,-.32,-.07,.125,.10,.21,shoes,shin);
+      this.box(.21,.035,.32,sole,0,-.39,-.07,{parent:shin});
       batchStatic(shin);return pivot;
     });
     const arms=new THREE.Group();arms.position.set(0,1.5,0);body.add(arms);
     let leftArm=null;
     for(const x of [-.36,.4]) {
       const limb=new THREE.Group();limb.position.x=x;arms.add(limb);if(x<0)leftArm=limb;
-      const sleeve=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.38,4,8),this.material(cloth));
+      const sleeve=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.38,4,8),this.material(look?.sleeves??cloth));
       sleeve.rotation.x=Math.PI/2;sleeve.position.set(0,-.08,-.24);sleeve.castShadow=true;limb.add(sleeve);
       round(0,-.08,-.53,.068,.065,.09,skin,limb);
       round(x<0?.045:-.045,-.105,-.57,.028,.038,.053,skin,limb);
       for(let f=0;f<3;f++)round((f-1)*.027,-.11,-.60,.017,.023,.027,skin,limb);
       batchStatic(limb,true);
     }
-    const guns=[buildWeapon(this,'switch',arms,.4)];
+    const guns=look?[]:[buildWeapon(this,'switch',arms,.4)];
+    look?.decorate?.(this,{body,round,skin,cloth});
     group.userData.torso=torso;this.scene.add(group);
     batchStatic(body);const person={group,body,hips,legs,arms,guns,leftArm};
     if(!enemy&&(identity===0 || identity===2))person.hair=buildHair(this,person,identity===0?0:1);
@@ -244,7 +255,7 @@ export class Game {
     const variant=(this.enemySerial=(this.enemySerial||0)+1)%10;
     const enemy = { ...this.buildPerson('#52636a', true,variant),variant,weaponId:['switch','arp','switch','draco','arp','switch','akimbo','arp','draco','switch'][variant], health: ENEMY_HEALTH.street, cooldown: 1.5, flashTime: 0, home: new THREE.Vector3(x, 0, z) };
     if(enemy.weaponId!=='switch'){const old=enemy.guns[0];old.group.removeFromParent();old.group.traverse(m=>{if(m.isMesh){m.geometry.dispose();m.material.dispose();}});enemy.guns=[buildWeapon(this,enemy.weaponId,enemy.arms,.4)];}
-    enemy.group.position.copy(enemy.home);
+    enemy.group.position.copy(enemy.home);plantOnGround(enemy);
     enemy.group.traverse(object=>{if(!object.isMesh)return;object.userData.enemy=enemy;let node=object;while(node&&node!==enemy.group){if(node.name.startsWith('weapon-')){object.userData.weaponPart=true;break;}node=node.parent;}});
     this.enemies.push(enemy);
     return enemy;
@@ -255,7 +266,6 @@ export class Game {
       const enemy=this.spawnEnemy(x,z);
       if(i===3) {
         enemy.special=true; enemy.alias='Static';enemy.health=ENEMY_HEALTH.static;
-        const badge=this.label('STATIC / SPECIAL OPP','#ffb16f',2.8,x,3,z);enemy.badge=badge;
         enemy.group.userData.torso.material.color.set('#1868ed');
       }
     });
@@ -308,7 +318,11 @@ export class Game {
     window.addEventListener('keyup', event => this.keys.delete(event.code));
     window.addEventListener('blur', () => {if(!this.net.host)this.pause();});
     document.addEventListener('visibilitychange', () => { if (document.hidden&&!this.net.host) this.pause(); });
-    document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && this.running&&!this.net.host) this.pause(); });
+    document.addEventListener('pointerlockchange', () => {
+      // A cursor release we asked for (hotwire puzzle) is not the player leaving.
+      if(!document.pointerLockElement&&this.cursorReleased){this.cursorReleased=false;return;}
+      if (!document.pointerLockElement && this.running&&!this.net.host&&this.carWork?.phase!=='wire') this.pause();
+    });
     document.addEventListener('mousemove', event => {
       if (!this.running || document.pointerLockElement !== this.canvas) return;
       this.lookHold=2;
@@ -376,7 +390,7 @@ export class Game {
   }
 
   resetMission() {
-    clearStreet(this);this.voices.stop();clearPursuit(this);this.defeatedNames=[];this.nextTaunt=5;this.tauntIndex=0;this.music.setScene('street');this.music.stop();this.lookHold=0;this.narrationDurations.clear();
+    clearStreet(this);clearBlood(this);this.voices.stop();clearPursuit(this);this.defeatedNames=[];this.nextTaunt=5;this.tauntIndex=0;this.music.setScene('street');this.music.stop();this.lookHold=0;this.narrationDurations.clear();
     clearClaimProps(this);this.level=1;this.claim=null;this.carWork=null;this.missionOneKills=null;
     this.running = this.started = this.finished = this.shooting = this.aiming = this.driving = false;
     this.keys.clear();this.aimSession=null;
@@ -399,11 +413,11 @@ export class Game {
     }
     this.effects = []; this.enemies = [];
     this.buildCrew(); this.buildEnemies();
-    Object.assign(this.car, { speed: 0, yaw: 0, gate: 0, integrity: 100, collisionCooldown: 0 });
+    Object.assign(this.car, { speed: 0, yaw: 0, gate: 0, integrity: 100, collisionCooldown: 0, ai: null, driverMode: null });
     this.car.lockState='locked';this.car.door.rotation.y=0;this.car.group.visible=true;this.car.windowMeshes.forEach(mesh=>mesh.visible=true);
     this.car.group.position.set(4,0,-38); this.car.group.rotation.set(0,0,0);
     this.routeMarkers.forEach(marker => { marker.ring.visible = marker.label.visible = false; });
-    this.terminals.forEach(terminal => { terminal.ring.visible=true;terminal.marker.visible = true; terminal.ring.material.opacity = .4; });
+    this.terminals.forEach(terminal => { terminal.ring.visible=false;terminal.marker.visible = false; terminal.ring.material.opacity = .4; });
     ['#result', '#pause-menu', '#rap-panel', '#drive-panel', '#car-work-panel', '#interaction', '#hud'].forEach(selector => $(selector).classList.add('hidden'));
     this.updateCamera(1); this.updateHUD();
   }
@@ -412,6 +426,13 @@ export class Game {
     this.net.disconnect();
     this.resetMission();
     $('#menu').classList.remove('hidden');
+  }
+
+  // Remove rivals (and their bodies) that no longer matter to the scene.
+  removeEnemies(predicate){
+    const gone=this.enemies.filter(predicate);if(!gone.length)return;
+    for(const e of gone){e.group.removeFromParent();e.group.traverse(m=>{if(m.isMesh){m.geometry.dispose();m.material.dispose();}});}
+    this.enemies=this.enemies.filter(e=>!gone.includes(e));
   }
 
   get player() { return this.characters[this.active]; }
@@ -467,26 +488,38 @@ export class Game {
       pos.x = clamp(pos.x, -25.1, this.street?77:this.level===2?33:25.1);
       pos.z = clamp(pos.z, -80, 21.1);
       const feet = pos.y;
-      if (this.colliders.some(box => feet < box.max.y && feet + 1.8 > box.min.y && pos.x + .38 > box.min.x && pos.x - .38 < box.max.x && pos.z + .38 > box.min.z && pos.z - .38 < box.max.z)) pos[axis] = old;
+      const hits=this.colliders.filter(box => feet < box.max.y && feet + 1.8 > box.min.y && pos.x + .38 > box.min.x && pos.x - .38 < box.max.x && pos.z + .38 > box.min.z && pos.z - .38 < box.max.z);
+      if(!hits.length)continue;
+      // Step up onto stairs and kerb-height ledges (≤ 0.45) when grounded.
+      const top=Math.max(...hits.map(box=>box.max.y));
+      const clear=character.grounded!==false&&top-feet<=.45&&!this.colliders.some(box => top < box.max.y && top + 1.8 > box.min.y && pos.x + .38 > box.min.x && pos.x - .38 < box.max.x && pos.z + .38 > box.min.z && pos.z - .38 < box.max.z);
+      if(clear)pos.y=top;else pos[axis] = old;
     }
   }
 
   updatePlayer(dt) {
     const p = this.player;
     const direction = this.moveDirection();
-    const sprinting = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
-    if(sprinting){p.crouched=false;p.coverBox=null;}
+    const moving=direction.lengthSq()>.01;
+    const sprinting = (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) && moving && !this.aiming;
+    if(sprinting){p.crouched=false;p.coverBox=null;p.coverSnap=null;}
     const speed = p.crouched?2.1:this.aiming ? 3.3 : sprinting ? 8 : 5.1;
     const sliding = p.slide > 0;
-    const step=sliding?p.slideDirection.clone().multiplyScalar(11*(.5+p.slide)*dt):acceleratedStep(p,direction,speed,dt);
+    const snapping=updateCoverSnap(this,p,dt,moving);
+    const step=sliding?p.slideDirection.clone().multiplyScalar(11*(.5+p.slide)*dt):acceleratedStep(p,snapping?new THREE.Vector3():direction,speed,dt);
     this.moveWithCollision(p,step);
     p.slide = Math.max(0, p.slide - dt);
     this.updateGravity(p, dt);
-    const bodyYaw=(!this.aiming&&!this.shooting&&direction.lengthSq()>.01)?Math.atan2(-direction.x,-direction.z):this.yaw;
-    p.group.rotation.y += angleDelta(p.group.rotation.y, bodyYaw) * (1-Math.exp(-dt*(this.aiming?14:10)));
+    // Facing: travel direction when moving freely, the aim when aiming/firing.
+    // Heavier (slower) turns at sprint speed, a hard plant during a pivot.
+    const travel=p.moveVelocity.length();
+    const bodyYaw=(!this.aiming&&!this.shooting&&moving)?Math.atan2(-direction.x,-direction.z):this.yaw;
+    const turnRate=this.aiming||this.shooting?14:p.pivot>0?18:travel>6?6.5:travel>.5?10:8;
+    p.group.rotation.y += angleDelta(p.group.rotation.y, bodyYaw) * (1-Math.exp(-dt*turnRate));
     p.recoil = damp(p.recoil, 0, 6, dt);
-    p.arms.rotation.x = damp(p.arms.rotation.x, this.pitch + p.recoil - p.body.rotation.x + (p.draw > 0 || p.reloading > 0 ? -.85 : 0), 12, dt);
-    updateCover(this,p,dt,direction.lengthSq()>0);animateLocomotion(p,dt,{aiming:this.aiming,crouched:p.crouched,sliding});assistAim(this,p,dt);
+    const carry=weaponCarry(p,dt,{aiming:this.aiming,shooting:this.shooting,sprinting,moving});
+    p.arms.rotation.x = damp(p.arms.rotation.x, this.pitch + p.recoil - p.body.rotation.x + (p.draw > 0 || p.reloading > 0 ? -.85 : carry), 12, dt);
+    updateCover(this,p,dt,moving);animateLocomotion(p,dt,{aiming:this.aiming,crouched:p.crouched,sliding,sprinting});assistAim(this,p,dt);
     if (this.shooting && p.draw <= 0 && p.reloading <= 0 && p.cooldown <= 0) this.shoot(p);
   }
 
@@ -497,8 +530,14 @@ export class Game {
       p.group.position.y += p.velocityY * dt;
       const platform = this.colliders.filter(box => p.group.position.x + .3 > box.min.x && p.group.position.x - .3 < box.max.x && p.group.position.z + .3 > box.min.z && p.group.position.z - .3 < box.max.z && oldY >= box.max.y - .05 && p.group.position.y <= box.max.y && p.velocityY <= 0).sort((a, b) => b.max.y - a.max.y)[0];
       if (platform) { p.group.position.y = platform.max.y; p.velocityY = 0; p.grounded = true; }
-      if (p.group.position.y <= 0) { p.group.position.y = 0; p.velocityY = 0; p.grounded = true; }
-    } else if (oldY > .01 && !this.colliders.some(box => Math.abs(box.max.y - oldY) < .1 && p.group.position.x > box.min.x - .3 && p.group.position.x < box.max.x + .3 && p.group.position.z > box.min.z - .3 && p.group.position.z < box.max.z + .3)) p.grounded = false;
+      const floor=groundHeight(p.group.position.x,p.group.position.z);
+      if (p.group.position.y <= floor) { p.group.position.y = floor; p.velocityY = 0; p.grounded = true; }
+    } else {
+      const floor=groundHeight(p.group.position.x,p.group.position.z);
+      const onBox=this.colliders.some(box => Math.abs(box.max.y - oldY) < .1 && p.group.position.x > box.min.x - .3 && p.group.position.x < box.max.x + .3 && p.group.position.z > box.min.z - .3 && p.group.position.z < box.max.z + .3);
+      // Small kerbs step up; higher drops start a fall. Feet never stay below the surface.
+      if(!onBox&&oldY>floor+.15)p.grounded=false;else if(!onBox||oldY<floor)p.group.position.y=floor;
+    }
   }
 
   shoot(character) {
@@ -548,26 +587,30 @@ export class Game {
     gun.recoil = Math.min((gun.recoil || 0) + weapon.kick * .35, .025);
     character.heat=Math.min(1,(character.heat||0)+.07);
     character.recoil = Math.min(character.recoil + weapon.kick*.18, .035);
-    this.lastShot={origin:origin.toArray(),direction:direction.toArray(),spread,character:character.index};
+    this.lastShot={origin:origin.toArray(),direction:direction.toArray(),spread,character:character.index};this.lastGunfire={position:origin.clone(),time:this.elapsed};
     if (character === this.player) { if(!this.net.remoteTarget)this.input.rumble();this.shots++; this.sound(state.id); }
     if (victim) {
       const location=hitLocation(victim.group.worldToLocal(hits[0].point.clone()).y);
       const damage=woundDamage(weapon.damage,location,clamp(weapon.range/Math.max(1,distance),.4,1),support);
       for(const sign of [-1,1])this.tracer(end,end.clone().add(new THREE.Vector3(.07*sign,.09,.02)),'#dfc9a5');
-      victim.body.rotation.z+=.045*(Math.random()>.5?1:-1);
-      victim.health=Math.max(0,victim.health-damage);
+      victim.body.rotation.z+=.045*(Math.random()>.5?1:-1);impactDroplets(this,hits[0].point,direction);
+      victim.health=Math.max(0,victim.health-damage);victim.provoked=true;
+      if(victim.passive)for(const e of this.enemies)if(e.passive&&e.group.position.distanceTo(victim.group.position)<16){e.passive=false;e.provoked=true;}
+      if(character===this.player)addHeat(this,4);
       if(character===this.player)this.lastWound={location,damage,enemy:victim};
       if (character === this.player) { this.hits++; this.hitTime = .14; }
-      if (victim.health <= 0) this.defeatEnemy(victim,character.index);
+      if (victim.health <= 0) this.defeatEnemy(victim,character.index,origin);
     }
   }
 
-  defeatEnemy(victim,index) {
+  defeatEnemy(victim,index,from=null) {
     if(victim.defeated)return;
     victim.health=0;victim.defeated=true;
-    victim.group.rotation.z=Math.PI/2;victim.group.position.y=.35;
-    victim.group.traverse(mesh=>{if(mesh.isMesh)mesh.material.color.multiplyScalar(.45);});
-    this.kills++;this.characters[index].kills++;killDialogue(this,victim,index);
+    // Bodies stay on the street; the pose settles onto the sampled ground.
+    beginRagdoll(this,victim,from||this.characters[index]?.group.position);groundStain(this,victim.group.position);
+    victim.guns.forEach(g=>g.flash.visible=false);
+    victim.group.traverse(mesh=>{if(mesh.isMesh)mesh.material.color.multiplyScalar(.62);});
+    this.kills++;this.characters[index].kills++;killDialogue(this,victim,index);addHeat(this,10);
     if(victim.special)this.characters[index].specialKills++;
     this.awardXP(index,victim.special?XP_REWARDS.special:XP_REWARDS.kill);
     if(victim.badge)victim.badge.visible=false;
@@ -622,6 +665,8 @@ export class Game {
       if (!target) continue;
       const distance = target.group.position.distanceTo(enemy.group.position);
       if (distance > 26 || this.rap || this.driving) continue;
+      // Watchful rivals track the crew but hold fire until provoked.
+      if(enemy.passive){enemy.group.rotation.y+=angleDelta(enemy.group.rotation.y,Math.atan2(-(target.group.position.x-enemy.group.position.x),-(target.group.position.z-enemy.group.position.z)))*Math.min(1,dt*2);continue;}
       const origin = enemy.group.position.clone().add(new THREE.Vector3(0, 1.5, 0));
       const targetHeight=target.peek?Math.abs(target.body.position.x)<.3?1.95:1.65:target.crouched?1.1:1.35;
       const destination = target.group.position.clone().add(new THREE.Vector3(target.body.position.x,targetHeight,0).applyAxisAngle(UP,target.group.rotation.y));
@@ -630,7 +675,7 @@ export class Game {
       enemy.cooldown -= dt;
       if (enemy.cooldown <= 0 && this.hasLineOfSight(origin, destination)) {
         enemy.cooldown = (enemy.weaponId==='draco'?1.2:enemy.weaponId==='arp'?.95:.8) + Math.random() * .6;
-        this.tracer(origin, destination, '#ff8061');
+        this.tracer(origin, destination, '#ff8061');this.lastGunfire={position:origin.clone(),time:this.elapsed};
         enemy.guns[0].flash.visible = true;
         enemy.flashTime = .05;
         const chance = target.slide > 0 ? .12 : !target.grounded ? .2 : .4;
@@ -698,11 +743,12 @@ export class Game {
     if(!task)return;
     if(task.phase==='wire'){
       task.timer=(task.timer||0)+dt;
-      this.car.door.rotation.y=damp(this.car.door.rotation.y,.85,10,dt);
-      const seat=new THREE.Vector3(-.8,.1,-.65).applyAxisAngle(UP,this.car.yaw).add(this.car.group.position);
+      // Free the cursor so the puzzle can be solved with the mouse.
+      if(!task.cursorFree){task.cursorFree=true;if(document.pointerLockElement){this.cursorReleased=true;document.exitPointerLock();}}
+      this.car.door.rotation.y=damp(this.car.door.rotation.y,DOOR_OPEN*.9,10,dt);
+      const seat=new THREE.Vector3(-.55,.1,-.3).applyAxisAngle(UP,this.car.yaw).add(this.car.group.position);
       this.player.group.position.lerp(seat,1-Math.exp(-dt*7));this.player.group.rotation.y=this.car.yaw;this.player.legs.forEach(l=>l.visible=false);this.player.arms.rotation.x=-.65;
-      if(task.type&&task.type!=='circuit'&&task.timer>(task.lastRender||-1)+.05){renderCircuit(this);task.lastRender=task.timer;}
-      $('#car-work-panel .work-track').classList.add('hidden');$('#car-work-panel>.eyebrow').textContent='Z78 / SIGNAL BYPASS';$('#car-work-panel>small').textContent=`${this.input.label('menu')} CANCEL`;$('#car-work-title').textContent=task.type==='sequence'?'REPEAT THE PULSES':task.type==='timing'?'LOCK THE SIGNAL':'CONNECT THE COLOR CIRCUIT';$('#wire-puzzle').classList.remove('hidden');
+      $('#car-work-panel .work-track').classList.add('hidden');$('#car-work-panel>.eyebrow').textContent='Z78 / HOTWIRE';$('#car-work-panel>small').textContent=`${this.input.label('menu')} CANCEL`;$('#car-work-title').textContent=(PUZZLE_INFO[task.type]||PUZZLE_INFO.circuit).title;$('#wire-puzzle').classList.remove('hidden');
       if(this.active!==2||this.player.group.position.distanceTo(this.car.group.position)>4.5){resetEntryPose(this);this.carWork=null;$('#car-work-panel').classList.add('hidden');return;}
       if(task.connected.length>=3){this.carWork=null;$('#car-work-panel').classList.add('hidden');this.car.lockState='ready';this.awardXP(2,20);this.boardCar();}return;
     }
@@ -712,17 +758,18 @@ export class Game {
     }
     const duration=task.phase==='break'?1.6:3;
     task.progress+=dt;
-    const reach=new THREE.Vector3(-1.8,0,-.5).applyAxisAngle(UP,this.car.yaw).add(this.car.group.position);
+    // Stand behind the door's swing (hinge at the front edge) and reach in.
+    const reach=new THREE.Vector3(-1.85,0,.55).applyAxisAngle(UP,this.car.yaw).add(this.car.group.position);
     this.player.group.position.lerp(reach,1-Math.exp(-dt*10));this.player.group.rotation.y=this.car.yaw-Math.PI/2;
     this.player.arms.rotation.x=-.15+Math.sin(task.progress*17)*.12;this.player.leftArm.rotation.x=-.3;this.player.body.rotation.x=.12;
-    this.car.door.rotation.y=damp(this.car.door.rotation.y,task.progress>.8?.95:0,10,dt);
+    this.car.door.rotation.y=damp(this.car.door.rotation.y,task.progress>.8?DOOR_OPEN:0,8,dt);
     $('#car-work-title').textContent=task.phase==='break'?'BREAK INTO THE CAR':'HOTWIRE THE ENGINE';
     $('#car-work-progress').style.width=`${Math.min(1,task.progress/duration)*100}%`;
     if(task.progress>=duration){
       this.carWork=null;$('#car-work-panel').classList.add('hidden');
       if(task.phase==='break'){
         this.car.lockState='opened';this.car.windowMeshes[0].visible=false;this.awardXP(2,10);
-        this.player.body.rotation.x=0;this.carWork=createBypass(this);renderCircuit(this);$('#car-work-panel').classList.remove('hidden');this.toast('Z78: Door’s open. Give me a second with this signal.');
+        this.player.body.rotation.x=0;this.carWork=createBypass(this);renderCircuit(this);$('#car-work-panel').classList.remove('hidden');this.toast('Z78: Door’s open. Give me a second under the dash.');
       }else{this.car.lockState='ready';this.awardXP(2,20);this.boardCar();}
     }
   }
@@ -745,7 +792,6 @@ export class Game {
     this.ambushStarted=true;
     for(const [x,z] of [[-5,-54],[-5.5,-64],[5.5,-71]]) {
       const enemy=this.spawnEnemy(x,z);enemy.driveBy=true;enemy.health=ENEMY_HEALTH.ambush;
-      enemy.badge=this.label('ARMED OPP','#ffb891',2.3,x,3,z);
     }
     this.toast('Z78: They posted up ahead. Cover us—I got the wheel.');
   }
@@ -786,22 +832,19 @@ export class Game {
     if(remoteDriver&&performance.now()-remoteDriver.received<500){const keys=new Set(remoteDriver.keys||[]);input={forward:keys.has('KeyW'),backward:keys.has('KeyS'),left:keys.has('KeyA'),right:keys.has('KeyD'),brake:keys.has('Space')};}
     const remoteFresh=remoteDriver&&performance.now()-remoteDriver.received<500;
     const manualDriver=remoteFresh&&(input.forward||input.backward||input.left||input.right);
-    car.driverIndex=2;car.driverMode=this.active===car.driverIndex||manualDriver?'PLAYER':'AI';
-    if(car.driverMode==='AI' && car.gate<DRIVE_ROUTE.length) {
-      const gate=DRIVE_ROUTE[car.gate];
-      const desired=Math.atan2(-(gate[0]-car.group.position.x),-(gate[1]-car.group.position.z));
-      const turn=angleDelta(car.yaw,desired);
-      input={forward:car.speed<4.5,left:turn>.06,right:turn<-.06,brake:Math.abs(turn)>.6 && car.speed>3};
-    }
-    if(car.gate===DRIVE_ROUTE.length&&car.driverMode==='AI')input={brake:true};
+    // Z78 keeps the wheel whenever he is not the player-controlled character.
+    const previousMode=car.driverMode;
+    car.driverIndex=2;car.driverMode=this.active===car.driverIndex&&!this.net.controlled(2)||manualDriver?'PLAYER':'AI';
+    if(car.driverMode==='AI'){if(previousMode!=='AI'&&car.ai)resumeRoute(this);input=autoDrive(this,dt);}
     const movement=advanceCar(car,input,dt);
     const old=car.group.position.clone();
     car.group.position.x+=movement.x;car.group.position.z+=movement.z;
     const p=car.group.position;
-    const collision=Math.abs(p.x)>8.2||p.z< -80||p.z>20||this.colliders.some(box=>box.max.y>.3&&p.x+1.3>box.min.x&&p.x-1.3<box.max.x&&p.z+2.1>box.min.z&&p.z-2.1<box.max.z);
+    const extent=carExtents(car.yaw);
+    const collision=Math.abs(p.x)>8.2||p.z< -80||p.z>20||this.colliders.some(box=>box.max.y>.3&&box.min.y<1.6&&p.x+extent.x>box.min.x&&p.x-extent.x<box.max.x&&p.z+extent.z>box.min.z&&p.z-extent.z<box.max.z);
     car.collisionCooldown=Math.max(0,car.collisionCooldown-dt);
     if(collision){
-      p.copy(old);
+      p.copy(old);if(car.ai&&car.driverMode==='AI')car.ai.bumped=true;
       if(Math.abs(car.speed)>3&&car.collisionCooldown===0){car.integrity=Math.max(0,car.integrity-12);car.collisionCooldown=.8;this.damageTime=.2;}
       car.speed*= -.2;
     }
@@ -871,8 +914,7 @@ export class Game {
       const rap = this.rap;
       const previous = rap.time;
       rap.time += dt;updateRapFeedback(rap,RAP_PATTERN.map((_,i)=>beatTime(i)),dt);
-      for(let i=0;i<RAP_PATTERN.length;i++) if(previous<beatTime(i) && rap.time>=beatTime(i)) this.beatSound();
-      if (rap.time > beatTime(7)+.5) {
+      if (streetRapDone(this,rap)) {
         this.rapScore = rap.hits;
         this.player.body.rotation.z=0;this.player.leftArm.rotation.x=0;this.rap = null;
         $('#rap-panel').classList.add('hidden');
@@ -884,31 +926,21 @@ export class Game {
       }
     }
     const objective = OBJECTIVES[this.stage];
+    // Ground rings stay as subtle world markers; the HUD marker carries the text.
     this.terminals.forEach((terminal,i) => {
-      terminal.ring.material.opacity = i===this.stage ? .55+Math.sin(this.elapsed*3)*.2 : .12;
-      terminal.marker.visible = i>=this.stage && !this.driving;
-      terminal.marker.lookAt(this.camera.position);
+      terminal.ring.visible = i===this.stage && this.stage>0 && !this.driving;
+      terminal.ring.material.opacity = .45+Math.sin(this.elapsed*3)*.18;
+      terminal.marker.visible = false;
     });
     this.routeMarkers.forEach((marker,i) => {
-      marker.ring.visible = marker.label.visible = this.stage===2 && i===this.car.gate;
-      marker.label.lookAt(this.camera.position);
+      marker.ring.visible = this.stage===2 && this.driving && i===this.car.gate;marker.label.visible=false;
     });
-    const prompt = $('#interaction');
-    prompt.classList.add('hidden');
-    if (!objective || this.stage===0 || this.rap || this.driving || this.carWork) return;
-    const position = this.stage===2 ? this.car.group.position : new THREE.Vector3(...objective.position);
-    const radius = this.stage===2 ? 4.5 : 3;
-    if(this.player.group.position.distanceTo(position)<radius) {
-      prompt.classList.remove('hidden');
-      prompt.innerHTML = this.active===objective.character ? `<kbd>E</kbd> ${this.stage===1 ? 'TAKE THE MIC' : this.car.lockState==='locked'?'HOLD TO BREAK IN':this.car.lockState==='opened'?'CONNECT THE CIRCUIT':'ENTER GETAWAY CAR'}<small>${this.stage===1 ? 'J / K / L · Land 6 of 8 beats' : 'W / S drive · A / D steer · Space brake · E exit'}</small>` : `SWITCH TO ${ROSTER[objective.character].name.toUpperCase()}<small>Press ${objective.character+1} · This is their part of the story.</small>`;
-    }
   }
 
   updateClaimRap(dt){
     if(!this.rap)return;
-    const rap=this.rap,previous=rap.time;rap.time+=dt;updateRapFeedback(rap,RAP_PATTERN.map((_,i)=>beatTime(i)),dt);
-    for(let i=0;i<RAP_PATTERN.length;i++)if(previous<beatTime(i)&&rap.time>=beatTime(i))this.beatSound();
-    if(rap.time>beatTime(7)+.5){
+    const rap=this.rap;rap.time+=dt;updateRapFeedback(rap,RAP_PATTERN.map((_,i)=>beatTime(i)),dt);
+    if(streetRapDone(this,rap)){
       this.rapScore=rap.hits;this.player.body.rotation.z=0;this.player.leftArm.rotation.x=0;this.rap=null;$('#rap-panel').classList.add('hidden');
       if(this.rapScore>=RAP_PASS){this.claim.verseDone=true;this.awardXP(1,XP_REWARDS.rap);this.toast('Doom: Verse stamped. This corner’s ours.',4);}
       else this.toast(`${this.rapScore}/8. Run that verse again. E near the capture zone.`);
@@ -1030,14 +1062,14 @@ export class Game {
     if(this.level===2){
       const point=CLAIM_POINTS[this.claim.point],count=waveCount(this);
       $('#objective-title').textContent=point.name;
-      $('#objective-description').textContent=point.role===1&&!this.claim.verseDone?`Switch to Lil doom → Green corner ring → ${this.input.label('interact')} to rap after clearing all opps.`:point.role===2&&!this.claim.exitTagged?alleyInstruction(this):'Clear every opp, then bring the whole crew into the capture zone.';
+      $('#objective-description').textContent=count<point.quota?'Clear the checkpoint.':point.role===1&&!this.claim.verseDone?'Doom: drop a verse at the corner.':point.role===2&&!this.claim.exitTagged?alleyInstruction(this):'Bring the whole crew into the ring.';
       $('#mission-step').textContent=`0${this.claim.point+1} / 04`;
-      $('#objective-count').textContent=`BODIES ${count}/${point.quota} · CREW ${this.characters.filter(p=>Math.abs(p.group.position.z-point.z)<=5&&Math.abs(p.group.position.x)<10).length}/3 IN ZONE`;
+      $('#objective-count').textContent=count<point.quota?`RIVALS REMAINING: ${livingOpps(this)} · BODIES ${count}/${point.quota}`:`CREW ${this.characters.filter(p=>Math.abs(p.group.position.z-point.z)<=5&&Math.abs(p.group.position.x)<10).length}/3 IN ZONE`;
       $('#objective-progress').style.width=`${Math.min(1,count/point.quota)*100}%`;
     }
     $('#crosshair').classList.toggle('hidden',this.driving&&!this.gunner&&!this.shooting&&!this.aiming || Boolean(this.rap));
     $('.weapon-panel').classList.toggle('hidden',Boolean(this.rap));
-    $('#drive-mode').textContent=this.active===0?'DRACO / BACK SEAT':this.active===1?'DOOM / PASSENGER':'Z78 / DRIVE & FIRE';
+    $('#drive-mode').textContent=this.active===0?'DRACO / BACK SEAT · Z78 DRIVING':this.active===1?'DOOM / PASSENGER · Z78 DRIVING':'Z78 / DRIVE & FIRE';
     $('#drive-help').textContent=this.gunner?'MOUSE AIM · LMB FIRE · R RELOAD · 1 / 2 / 3 SWITCH':'WASD DRIVE · MOUSE AIM · LMB FIRE · R RELOAD';
     $('#drive-kills').textContent=`OPPS LEFT ${livingOpps(this)}`;
     $('#special-status').textContent=`${this.player.onFireUntil>this.elapsed?'ON FIRE · ':''}STREET CRED ${this.player.xp}${this.aimTarget?' · AIM ASSIST':''}`;
@@ -1116,21 +1148,21 @@ export class Game {
         this.net.simulate(step);this.updateAI(step);
         if (this.running) this.updateObjectives(step);
       }
+      updateZone(this);
       this.toastTime = Math.max(0, this.toastTime - dt);
       if(this.toastTime===0&&this.narrationQueue.length)this.showNextNarration();
       this.enemies.forEach(enemy=>{
-        if(this.level===1&&this.stage===2&&enemy.health>0&&!enemy.badge)enemy.badge=this.label('OPP','#ffd1a3',2,enemy.group.position.x,3,enemy.group.position.z);
         if(enemy.badge&&enemy.health>0){enemy.badge.position.copy(enemy.group.position).add(new THREE.Vector3(0,3,0));enemy.badge.lookAt(this.camera.position);}
       });
       combatBarks(this);
-      this.music.setDucked(Boolean(this.rap)&&this.rap.purpose!=='studio');
+      this.music.setDucked(Boolean(this.rap)&&this.rap.purpose!=='studio',.12);
       this.hitTime = Math.max(0, this.hitTime - dt);
       this.damageTime = Math.max(0, this.damageTime - dt);
       this.updateCamera(dt);
       if(!this.rap&&!this.carWork&&(this.driving||this.aiming||this.shooting))alignWeapon(this,this.player,aimPoint(this));
       this.updateHUD();rapPresentation(this,dt);if(this.carWork)this.player.weaponRigs.flat().forEach(g=>g.group.visible=false);
     }
-    this.updateEffects(dt);
+    this.updateEffects(dt);updateRagdolls(this,dt);updateBlood(this,dt);
     if(this.sky)this.sky.position.copy(this.camera.position);
     for(const p of [...this.characters,...this.enemies,...(this.street?.contacts||[])])if(p.hair)p.hair.visible=this.camera.position.distanceTo(p.group.position)<(this.quality==='low'?30:this.quality==='medium'?50:90);
     this.renderer.render(this.scene, this.camera);

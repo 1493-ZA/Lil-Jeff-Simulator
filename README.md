@@ -23,13 +23,13 @@ Open the address Vite prints and click **Enter CHIRAQ**. Use a desktop browser w
 | Right mouse | Aim; track a visible opponent’s upper abdomen for the first second |
 | Space | Jump in the movement direction |
 | Shift | Sprint |
-| C | Crouch / take cover, or leave cover |
+| C | Crouch / take cover (steps up to the nearest barricade face), or leave cover |
 | Shift + C | Seated slide |
 | Backward while in cover | Leave cover |
 | Right mouse in cover | Automatically peek over or around the face you aim toward |
 | 1 / 2 / 3 | Draco / doom / Z78 (sunroof chase fixes control to Draco) |
 | Q / R | Swap weapon / reload |
-| E | Interact; hold for break-in, then solve a short abstract signal puzzle |
+| E | Interact (the prompt appears on the object when you are close enough); hold to break into a car, then solve a short logic puzzle |
 | J / K / L | Perform the displayed rap notes |
 | WASD in Mission 1’s car | Drive / steer while Z78 is selected |
 | Space / E in Mission 1’s car | Brake / exit |
@@ -46,15 +46,16 @@ Inactive crew follow, commit to corner waypoints to avoid getting stuck, seek as
 
 ### Mission 1 — ENTER CHIRAQ
 
-Draco needs three takedowns or the named **Static / Special Opp**. Doom then performs a 6-of-8-note sidewalk verse. Z78 holds E for 1.6 seconds to break into the marked sedan. He reaches toward the door, opens it and moves into the cabin. A short abstract puzzle starts automatically. Escape cancels without starting the engine. Puzzle types rotate randomly without immediate repeats:
+Draco needs three takedowns or the named **Static / Special Opp**. Doom then performs a 6-of-8-note sidewalk verse. Z78 holds E for 1.6 seconds to break into the marked sedan; the driver door swings outward from its front hinge while he stands clear of it, then he slides into the seat. A short logic puzzle starts automatically, with a one-line instruction above it. Escape cancels without starting the engine. Puzzle types rotate without immediate repeats:
 
-- **Circuit match:** 1/2/3 selects a left color; J/K/L chooses its matching right color. Click controls are also available.
-- **Pulse sequence:** watch the three-color sequence, then repeat using 1/2/3 or J/K/L. A wrong input resets the sequence.
-- **Signal timing:** press Space in the green zone on three separate pulse cycles. A miss resets the locks.
+- **Circuit match:** match each colour on the left to the same colour on the right (1/2/3 then J/K/L, or click).
+- **Wiring grid:** on a 4×4 grid, connect each pair of coloured dots without crossing wires (drag with the mouse, or arrows + Space). Every layout is generated from real non-overlapping paths, so it is always solvable.
+- **Rotate circuit:** rotate 3×3 pipe tiles until power flows from ⚡ to ◉ (click a tile, or arrows + Space).
+- **Fuse routing:** put each fuse in the slot with the same shape and number; one fuse is a decoy (click fuse then slot, or 1–4 then J/K/L).
 
-Controller: D-pad chooses nodes/pulses, X selects/submits and A connects or locks timing. Both cars use the same pool. These are fictional game puzzles, not real vehicle procedures.
+Controller: D-pad moves, A acts, X selects. The cursor is released while a puzzle is open so it can be solved with the mouse. These are fictional game puzzles, not real vehicle procedures.
 
-Drive through the route to trigger the ambush. In the car, Z78 drives automatically whenever he is not selected; Draco and doom provide weak autonomous fire when inactive. The driver can shoot one pistol while steering. Vehicle impacts also count as takedowns.
+Drive through the route to trigger the ambush. **Z78 drives autonomously whenever he is not the selected character**: switch to Draco or doom and he keeps following the checkpoint route, then keeps lapping the block in both lanes (clear of parked cars) until the mission ends. He steers around obstacles, reverses out of K-turns and recovers if the player crashed into a kerb before handing over. Draco and doom provide weak autonomous fire when inactive. The driver can shoot one pistol while steering. Vehicle impacts also count as takedowns.
 
 **Every opponent must be down**, including street opponents left behind, before Mission 2 begins. The route’s last ring does not end the mission. OPPS LEFT and remaining-opponent markers help find survivors. Mission 2 starts only after combat and rap tasks, successful hotwiring, all three route checkpoints, and every opponent being defeated. Finishing kills early cannot bypass the route.
 
@@ -85,11 +86,21 @@ Press J/K/L when the notes meet the line. Each performer needs at least **6/8** 
 
 ### Free-roam neighborhood
 
-**Home Block** contains the mic, Relay’s supplier job, friendly locals and the studio entrance. A narrow connecting passage at z=-31 leads through **Commerce Row** to **East Yard**, the rival block with armed patrols and a priority-target encounter. Behind-building alleys contain dumpsters, utility cabinets, loading cover, fire escapes, back doors, lighting and fictional artwork. Couriers visit actual client NPCs with idle poses, spoken lines and short exchange gestures.
+The map has three readable areas: **OUR BLOCK** (west; red accents as a placeholder crew colour), **COMMERCE ROW** (the neutral connecting strip at z=-31) and the **OPP BLOCK** (east; blue cars, lights, banners, shutters and locals in blue). Crossing a boundary shows a small `NOW ENTERING` notice and the minimap tints each area.
 
-Relay rotates three abstract sealed-package jobs: Amber Case (one high-value drop with armed rivals), Violet Parcels (three cross-neighborhood handoffs), and Cyan Envelope (one short, quiet delivery). No real substances or distribution procedures are modeled. Priority Cinder changes to an explicit escape phase after combat, with a world arrow, distance, minimap destination and transition notice. Follow the arrow back to Commerce Row.
+**Opp Block heat.** Time spent in the Opp Block, gunfire, hits and kills raise `OPP HEAT` (meter under the minimap). Level 1: patrols watch you but hold fire. Level 2: small hostile groups arrive. Level 3: rivals converge on you. **Max heat:** the objective becomes `GET OUT THE OPP BLOCK` with an arrow, ring and minimap marker to Commerce Row. Once out, `AREA CLEAR` shows, heat cools and the rivals who came looking leave.
 
-The minimap is north-up, showing real building footprints, streets, crew, activity icons and the Mission 4 location. Destinations outside its radius remain at the map edge. Required-character indicators float above the appropriate crew member and clamp to the screen edge; they disappear on switching. Active-character health has a larger lower-left card, illustrated portrait, heart icon, health value and low-health warning. The three existing playable characters remain the roster.
+Activities: Doom's cypher, Relay's courier jobs (Z78), rival encounters, Priority Cinder, and two ammo stashes. Courier runs are: talk to Relay → pick up the sealed package → the client is already waiting and becomes the objective → hand off. Each run rolls an encounter: **quiet**, **suspicious** (rivals watch the drop and turn hostile if crowded or shot), **ambush** (rivals hit the pickup) or **chase** (rivals arrive after the handoff; take them down or get 45 m away). Amber Case is always an ambush and Cyan Envelope always quiet. **Ammo stashes:** walk to the stash, press E, secure the area if it is guarded (the Opp Block stash is), press E again, and the banner lists exactly which reserves were restocked.
+
+The street is populated by walking civilians and the job contacts. Civilians are built from a modular catalog (16 hairstyles, 10 hats/none, 16 outfit types, skin tones, pants, shoes, build, height, beard/glasses/earring/chain), and the loc styles, black taper fade and the crew's exact clothing colours are reserved, so no civilian can match King Draco, Lil doom or Z78. Pedestrians update every frame nearby, every 4th frame at mid range and are hidden (still walking) far away; only nearby ones cast shadows. They step around obstacles and run from gunfire.
+
+The **elevated railway** crosses the street at z=-53 over open lots only (the two buildings it used to pass through were removed). The west lot has After Hours Station: two stair flights up to a platform beside a stopped train, and the deck is walkable. Mission 4 is not started; this only makes the area usable later. Mission 4 still requires 5,000 crew Street Cred and deliberate interaction at the southern marker.
+
+The minimap is north-up with building footprints, territory tint, the railway, activity icons, stashes and the current destination (clamped to the edge when outside the radius).
+
+### HUD markers
+
+All indicators share one small style: icon + short label + distance, placed on the world position and clamped to the screen edge with an arrow when off screen. `SWITCH TO <name>` floats above the crew member who is needed. The interaction prompt (for example `E HAND OFF`) only appears on the object when you are close enough to use it. Combat objectives show `RIVALS REMAINING: n` at the approximate centre of the group without revealing every rival through walls; named rivals get a small tag only while actually in view. Destinations that need a ring (mic, handoffs, escape points, stashes) get a pulsing ground ring.
 
 ## Combat balance and hit locations
 
@@ -109,7 +120,7 @@ Nearby opponents deliver short tactical threats. Each crew member has brief, con
 
 The instrumental is an original, locally synthesized Chicago drill-inspired arrangement: locally generated kick, snare, clap, rim and hat samples, syncopated drum patterns, half-time backbeats, saturated 808s, rapid hat rolls, dark piano partials, and bar drops. These are original synthesized sounds, not samples from released songs. A compressor controls peaks. The louder default is 72%; music preferences are saved separately from older quieter settings. The header slider adjusts music; M mutes music while gunshots and voices remain available.
 
-All voices are **synthetic placeholders**, not recordings, impressions, or voice clones of the referenced musicians. The bundled Ogg clips work without a browser speech service. Regeneration instructions, original text and Flite notices are in `public/audio/` and `scripts/generate-voices.py`. Professional voice performances and a produced music soundtrack remain future production work.
+Voices are **original fictional characters** generated with the open Kokoro-82M speech model (Apache-2.0) — no recordings, impressions or voice clones of real musicians. Each crew member is an original blend of stock voice styles with a fixed pitch offset (Draco low and steady, doom brighter and bouncier, Z78 smooth in between). Raps are performed faster, double-tracked, compressed and fitted to the beat; dialogue gets light room tone. Street cyphers are a full performance: the performer walks to the mic during the count-in, a 92 BPM half-time groove (built from the game's own drum samples) starts under a ducked instrumental, four sung bars land on the note pairs while you play the notes, then the crowd and a crew member react. Regeneration instructions are in `public/audio/README.md` and `scripts/generate-voices.py`. Studio-quality human performances remain future production work.
 
 Visual improvements include environment reflections, warmer directional lighting, softer shadows, textured fabric and masonry, asphalt grain and cracks, wet patches, rounded car panels, transparent windows, cabin interiors, sunroof framing, more adult head/neck proportions, finer loc strands, neutral textured clothing, higher-resolution body meshes, and articulated legs. Draco retains shoulder-length locs, Z78 retains his distinct tied locs, and doom has a black tapered fade. Art remains procedural prototype geometry.
 
@@ -152,16 +163,21 @@ Rap notes retain green hit/red miss feedback and a visible ready countdown. Perf
 
 Standard-mapped Gamepad API controllers connect without setup. Left stick moves with analog speed, right stick looks, LT aims, RT fires, A jumps/brakes, B crouches (LB+B slides), LB sprints, X interacts, Y swaps and RB reloads. D-pad left/up/right selects Draco/doom/Z78; down shows Street Cred. Menu/Start pauses or resumes. D-pad navigates menu buttons and graphic options; A activates. Rap uses X/Y/B. Prompts switch immediately on controller or keyboard/mouse input. Optional vibration is used when the browser/controller supports it. Physical device feel still needs a hardware playtest.
 
-### Optional online co-op
+### Online co-op (up to three players)
 
-There was no pre-existing multiplayer implementation. This update adds an experimental three-player room relay and host-authoritative simulation. The host controls damage, AI, vehicle routes and mission/objective/minigame state. Human guests take normal damage; only inactive AI crew have a health floor. Guests send input at 20 Hz; the host sends state at 20 Hz, with interpolated actor and vehicle positions and event-based tracers. Characters occupied by a guest are reserved; Draco remains reserved for the host, and guests can swap between unoccupied guest characters. Stale inputs stop after 500 ms. Joining receives current state; leaving returns that character to AI. Host departure ends the room; host migration/reconnect recovery is not implemented.
+Open **ONLINE CO-OP** on the main menu:
 
-GitHub Pages hosts static files and cannot run the relay. To try locally, run `npm run relay` in a second terminal, then enter `ws://localhost:8787` under **Online co-op**. Create a room with the code blank, share the generated code, and let other players join using the same relay address/code. The host starts the mission. For internet play, deploy `server/relay.js` on a Node host behind HTTPS/WebSocket TLS and use its `wss://` address. The game never assumes localhost on the public website. Room entry addresses/codes still require text entry. Pause on the host pauses the shared simulation; guest pause affects only that guest's view.
+- **Host:** press `HOST GAME`. You get a `ROOM CODE` such as `7K4P92`; share it. You play King Draco and press ENTER CHIRAQ when everyone has joined.
+- **Join:** type the code into `JOIN CODE` and press `JOIN GAME`. You take the first free character (doom, then Z78) and wait for the host.
 
-The relay accepts up to three players per room, stamps input sender identity, ignores guest snapshots, limits payloads/message rates and checks heartbeats. Room codes are invitations, not account authentication. This is cooperative host authority, not a hardened competitive game server.
+This uses peer-to-peer WebRTC connections. The host's browser runs the game simulation (host authority: damage, AI, vehicles, missions and minigames) and acts as the room server; the public PeerJS broker only introduces players by room code. Guests send input at 20 Hz, the host sends state at 20 Hz. Very strict networks that block peer-to-peer traffic may not connect; in that case use a relay (below). Host departure ends the room; host migration is not implemented.
+
+**Advanced: your own relay.** `npm run relay` starts `server/relay.js` (port 8787 by default, `PORT` to change). Everyone enters the same relay address — `ws://<computer address>:8787` on a home network, or `wss://<server>` for an internet server behind HTTPS (the hosted HTTPS site only allows `wss://`). The host leaves Room code blank to create a room; others enter it. The menu's `WHAT IS A RELAY ADDRESS?` panel explains this in plain language. For self-hosted matchmaking, run a PeerJS server and add `?peer=host:port` to the game URL (or build with `VITE_PEER_SERVER`).
+
+The relay accepts up to three players per room, stamps input sender identity, ignores guest snapshots, limits payloads/message rates and checks heartbeats; the peer-to-peer host applies the same rules. Room codes are invitations, not account authentication. This is cooperative host authority, not a hardened competitive game server.
 
 ### Profiling and validation
 
-Static hair/body/weapon pieces are batched by material while articulated limbs and muzzle flashes remain separate. Existing instanced neighborhood geometry remains intact. Distant enemy processing is reduced and tracer/effect counts are bounded by graphics quality. Tracer geometry is pooled, and distant cosmetic hair is culled by the selected quality preset. Measurements and this update’s release checks are recorded in `docs/playthrough-polish-qa.md` (earlier baseline: `docs/update-qa.md`); software-rendered timings are diagnostic and do not predict a physical GPU's frame rate.
+Static hair/body/weapon pieces are batched by material while articulated limbs and muzzle flashes remain separate. Existing instanced neighborhood geometry remains intact. Distant enemy processing is reduced and tracer/effect counts are bounded by graphics quality. Tracer geometry is pooled, and distant cosmetic hair is culled by the selected quality preset. Measurements and this update’s release checks are recorded in `docs/playthrough-fixes-qa.md` (earlier: `docs/playthrough-polish-qa.md`, `docs/update-qa.md`); software-rendered timings are diagnostic and do not predict a physical GPU's frame rate.
 
 Run `npm test` for combat, progression, circuit and delayed-relay checks. `npm run test:browser` exercises the campaign, UI, controller simulation, new activities and two-browser co-op with 80 ms delay in each relay direction. `npm run build -- --base=/Lil-Jeff-Simulator/` produces the Pages build. Online availability requires deploying a relay separately.

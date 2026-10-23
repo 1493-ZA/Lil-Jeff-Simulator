@@ -39,7 +39,7 @@ export function updateCompanions(game,dt) {
     if(p===game.player || game.net?.controlled(p.index) || p.health<=0) continue;
     const pos=p.group.position;
     if(!p.aiGoal)p.aiWaypoint=null;
-    const enemies=game.enemies.filter(e=>e.health>0 && !e.driveBy);
+    const enemies=game.enemies.filter(e=>e.health>0 && !e.driveBy && !e.passive);
     const nearest=enemies.sort((a,b)=>a.group.position.distanceToSquared(pos)-b.group.position.distanceToSquared(pos))[0];
     const hurt=p.health<45;
     if(p.health<65 && game.elapsed-p.lastHitAt>3) p.health=Math.min(65,p.health+dt*3);

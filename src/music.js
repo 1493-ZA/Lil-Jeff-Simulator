@@ -11,10 +11,10 @@ export class DrillMusic {
   save() { try{localStorage.setItem('lil-jeff-music-v2',JSON.stringify({volume:this.volume,muted:this.muted}));}catch{/* Settings remain usable in memory. */} }
   setVolume(value) { this.volume=Math.max(0,Math.min(1,value));this.save();this.applyGain(); }
   toggle() { this.muted=!this.muted;this.save();this.applyGain(); }
-  setDucked(value) { if(this.ducked!==value){this.ducked=value;this.applyGain();} }
+  setDucked(value,level=.35) { if(this.ducked!==value||this.duckLevel!==level){this.ducked=value;this.duckLevel=level;this.applyGain();} }
   applyGain() {
     if(!this.context || !this.bus)return;
-    const gain=this.active&&!this.muted?this.volume*1.25*(this.ducked?.35:1):0;
+    const gain=this.active&&!this.muted?this.volume*1.25*(this.ducked?this.duckLevel??.35:1):0;
     this.bus.gain.cancelScheduledValues(this.context.currentTime);
     this.bus.gain.setTargetAtTime(gain,this.context.currentTime,.035);
   }

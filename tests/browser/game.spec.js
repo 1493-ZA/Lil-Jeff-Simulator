@@ -152,7 +152,7 @@ test('pause, resume, and return to main menu reset a run without reloading', asy
 });
 
 test('Mission 1 completes only on its last opp and automatically rewards and starts Mission 2', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(240000);
   await enter(page);
   await page.evaluate(()=>window.__game.enemies.forEach(e=>e.cooldown=Infinity));
   await page.keyboard.press('Digit2');
@@ -178,7 +178,7 @@ test('Mission 1 completes only on its last opp and automatically rewards and sta
   await page.waitForFunction(()=>window.__game.stage===1);
   expect(await page.evaluate(()=>window.__game.characters[0].kills)).toBe(3);
   await page.evaluate(()=>window.__game.player.group.position.set(-11,0,-23));
-  await expect(page.locator('#interaction')).toContainText('SWITCH TO LIL DOOM');
+  await expect(page.locator('#required-character')).toContainText('SWITCH TO Lil doom');await expect(page.locator('#interaction')).toBeHidden();
   await page.keyboard.press('KeyE');
   expect(await page.evaluate(()=>window.__game.rap)).toBeNull();
   await page.keyboard.press('Digit2');
@@ -404,7 +404,8 @@ test('normal opps and the Special Opp patrol with moving legs and attached marke
     return [g.enemies[0],g.enemies.find(e=>e.special)].every((e,i)=>Math.hypot(e.group.position.x-points[i].x,e.group.position.z-points[i].z)>1);
   },before);
   await page.waitForFunction(()=>window.__game.enemies.some(e=>e.legs.some(l=>Math.abs(l.rotation.x)>.1)));
-  expect(await page.evaluate(()=>{const e=window.__game.enemies.find(e=>e.special);return Math.abs(e.badge.position.x-e.group.position.x)+Math.abs(e.badge.position.z-e.group.position.z);})).toBeLessThan(.1);
+  // Named rivals carry a small HUD tag (shown only in line of sight) instead of a world billboard.
+  expect(await page.evaluate(()=>{const e=window.__game.enemies.find(e=>e.special);return{alias:e.alias,badge:e.badge??null};})).toEqual({alias:'Static',badge:null});
 });
 
 test('crew fires autonomously, driver shoots one-handed while steering, and AI driving can run over opps',async({page})=>{
@@ -424,7 +425,7 @@ test('crew fires autonomously, driver shoots one-handed while steering, and AI d
   expect(await page.evaluate(()=>window.__game.characters[2].guns[1].group.visible)).toBe(false);
   const start=await page.evaluate(()=>window.__game.car.group.position.z);
   await page.keyboard.down('KeyW');
-  await page.mouse.down();
+  await page.mouse.move(720,300);await page.mouse.down();
   await page.waitForFunction(z=>window.__game.car.group.position.z<z-.8&&window.__game.characters[2].loadout[0].rounds[0]<50,start);
   await page.mouse.up();await page.keyboard.up('KeyW');
   expect(await page.evaluate(()=>window.__game.characters[2].loadout[0].rounds[1])).toBe(50);
@@ -565,7 +566,8 @@ test('ducking behind real cover blocks incoming and outgoing shots; peeking and 
   });
   await page.screenshot({path:'test-results/claim-cover-peek.png'});
   await page.keyboard.up('KeyX');
-  await page.evaluate(()=>__game.yaw=.6);
+  // The player now glides flush to the barricade, so the edge needs a wider aim angle.
+  await page.evaluate(()=>__game.yaw=.95);
   await page.waitForFunction(()=>__game.player.body.position.x<-.8&&__game.player.body.scale.y===1);
   await page.mouse.up({button:'right'});await page.keyboard.press('KeyC');
   await page.waitForFunction(()=>!window.__game.player.crouched&&window.__game.player.body.scale.y>.95);

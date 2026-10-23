@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {clearBlood} from './blood.js';
 import {disposeProp,updateContact} from './contacts.js';
 import {ALLEY_STOPS,alleyInstruction} from './alley.js';
 import { findCover, posture } from './cover.js';
@@ -23,7 +24,7 @@ export function clearEnemies(game) {
     enemy.group.traverse(mesh=>{if(mesh.isMesh){mesh.geometry.dispose();mesh.material.dispose();}});
     if(enemy.badge){game.scene.remove(enemy.badge);enemy.badge.geometry.dispose();enemy.badge.material.map?.dispose();enemy.badge.material.dispose();}
   }
-  game.enemies=[];
+  game.enemies=[];clearBlood(game);
 }
 
 export function clearClaimProps(game) {
@@ -57,10 +58,9 @@ export function spawnClaimWave(game) {
     const x=[-6,-2,2,6][i%4],z=point.z-1-Math.floor(i/4)*3;
     const enemy=game.spawnEnemy(x,z);enemy.claimWave=game.claim.point;
     enemy.health=ENEMY_HEALTH.claimBase+game.claim.point*ENEMY_HEALTH.claimStep;enemy.cooldown=1.8+i*.12;
-    if(game.claim.point===2&&i===0){enemy.alias='Switchback';enemy.special=true;enemy.health=ENEMY_HEALTH.switchback;enemy.badge=game.label('SWITCHBACK','#ffae79',3,x,3,z);}
+    if(game.claim.point===2&&i===0){enemy.alias='Switchback';enemy.special=true;enemy.health=ENEMY_HEALTH.switchback;}
     if(game.claim.point===3&&i===point.quota-1){
       enemy.special=true;enemy.alias='Vex';enemy.health=ENEMY_HEALTH.vex;enemy.group.userData.torso.material.color.set('#1769ee');
-      enemy.badge=game.label('VEX / BLOCK CAPTAIN','#ffae79',3,x,3,z);
     }
   }
 }
@@ -97,19 +97,11 @@ export function beginClaimBlock(game,retry=false) {
 export function updateClaimBlock(game) {
   if(game.alleyClient&&game.alleyClient.group.parent)updateContact(game,game.alleyClient,1/60);
   const point=CLAIM_POINTS[game.claim.point];
-  game.claimMarkers.forEach((marker,i)=>{marker.ring.visible=marker.label.visible=i===game.claim.point;marker.label.lookAt(game.camera.position);});
-  game.flankMarker.visible=game.claim.point===2&&!game.claim.exitTagged;
-  game.flankMarker.lookAt(game.camera.position);
-  const stop=ALLEY_STOPS[Math.min(game.claim.alley?.step||0,2)];game.flankMarker.position.set(stop[0],3,stop[1]);
+  game.claimMarkers.forEach((marker,i)=>{marker.ring.visible=i===game.claim.point;marker.label.visible=false;});
+  game.flankMarker.visible=false;
   const clear=waveCount(game)>=point.quota;
   const together=crewAtPoint(game.characters,point.z);
   const roleDone=point.role===1?game.claim.verseDone:point.role===2?game.claim.exitTagged:true;
-  const prompt=document.querySelector('#interaction');prompt.classList.add('hidden');
-  if(clear && !game.rap) {
-    prompt.classList.remove('hidden');
-    if(!roleDone)prompt.innerHTML=point.role===1?'<kbd>2</kbd> DOOM · <kbd>E</kbd> CORNER CYPHER<small>Get near the capture ring and drop a verse.</small>':alleyInstruction(game);
-    else prompt.innerHTML='AREA CLEAR · MOVE THE WHOLE CREW UP<small>Bring all three into the green capture zone.</small>';
-  }
   if(clear&&together&&roleDone) {
     game.characters.forEach(p=>game.awardXP(p.index,15));
     if(game.claim.point===CLAIM_POINTS.length-1){game.claim.complete=true;beginPursuit(game);return;}
