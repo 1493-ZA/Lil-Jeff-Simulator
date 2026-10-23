@@ -41,7 +41,7 @@ export function buildDistrict(game,brick){
  }
  for(const [x,z]of [[33,-12],[70,-64],[29,-64]]){box(2,1.2,1,'#667166',x,.6,z,true);box(2.1,.1,1.1,'#929888',x,1.25,z);}
  for(const [x,z]of [[63,-13],[49,-58]]){
-  const parked=buildCar(game,[x,0,z],{paint:'#1f4fc4',parked:true,detail:game.quality==='high'});parked.group.name='opp block parked car';
+  const parked=buildCar(game,[x,0,z],{paint:'#1f4fc4',parked:true,detail:game.quality==='high',model:x>55?'muscle-1':'sedan-1',tint:'#2a5fd8'});parked.group.name='opp block parked car';
   game.colliders.push(new THREE.Box3(new THREE.Vector3(x-1.2,0,z-2.5),new THREE.Vector3(x+1.2,1.8,z+2.5)));
  }
  for(const x of [28,69])for(let n=0;n<8;n++)box(.035,1.7,.035,'#7d8582',x,.85,-58+n*.3);

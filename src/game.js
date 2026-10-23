@@ -6,7 +6,8 @@ import { buildHair, buildWeapon, DOOR_OPEN } from './models.js';
 import { OBJECTIVES, RAP_PATTERN, RAP_LINES, BEAT_SECONDS, RAP_PASS, DRIVE_ROUTE, combatTarget, combatComplete, beatTime, createRap, judgeRap, advanceCar } from './mission.js';
 
 import { CLAIM_POINTS, livingOpps, missionOneCleared, waveCount, beginClaimBlock, updateClaimBlock, clearClaimProps } from './campaign.js';
-import { clothingMap } from './surfaces.js';
+import { fabricProps } from './fabrics.js';
+import { loadEnvironment } from './assets.js';
 import { ENEMY_HEALTH, hitLocation, woundDamage } from './combat.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { toggleCover, updateCover, updateCoverSnap, assistAim } from './cover.js';
@@ -107,9 +108,17 @@ export class Game {
     this.updateHUD();
     this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     this.renderer.setAnimationLoop(() => this.tick());
+    loadEnvironment(this);
   }
 
-  material(color, extra = {}) { this.fabric??=new Set(['#3c4043','#354d49','#353342','#303a43','#3c444c','#1559de','#2349bd','#0867e4','#244b9f','#1b62e6','#173f96','#2156cb','#1248b5','#2869e8','#183b87']);const cloth=this.fabric.has(color);return new THREE.MeshStandardMaterial({ color, roughness: cloth?.94:.72,...(cloth?{map:clothingMap(),bumpMap:clothingMap(),bumpScale:.025}:{}), ...extra }); }
+  material(color, extra = {}) {
+    // Cloth colours get real fabric textures: fleece tops, denim pants, leather on request.
+    this.fabric??=new Set(['#3c4043','#354d49','#353342','#3c444c','#1559de','#2349bd','#0867e4','#244b9f','#1b62e6','#173f96','#2156cb','#1248b5','#2869e8','#183b87']);
+    this.denim??=new Set(['#303a43']);
+    const {fabric:requested,...rest}=extra;
+    const kind=requested||(this.denim.has(color)?'denim':this.fabric.has(color)?'fleece':null);
+    return new THREE.MeshStandardMaterial({ color, roughness: kind?.94:.72,...(kind?fabricProps(kind):{}), ...rest });
+  }
 
   box(width, height, depth, color, x, y, z, { solid = false, parent = this.scene, ...extra } = {}) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), this.material(color, extra));
