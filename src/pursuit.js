@@ -4,6 +4,7 @@ import { updateRapFeedback,markRap,renderNotes } from './performance.js';
 import { buildCar } from './models.js';
 import { clearEnemies,clearClaimProps } from './campaign.js';
 import { createLoadout,ROSTER } from './combat.js';
+import { resetParkedCars } from './carjack.js';
 const $=s=>document.querySelector(s),UP=new THREE.Vector3(0,1,0);
 export const PURSUIT_TOTAL=6,STUDIO_THRESHOLD=180;
 export const STUDIO_TURN=60/148*24;
@@ -12,8 +13,9 @@ export const STUDIO_FLOWS=[[0,2,4,6,8,10,12,14],[0,1.5,3,6,7.5,9,12,14],[0,2/3,2
 export const studioNoteTime=(index,turn)=>6*60/148+STUDIO_FLOWS[turn%3][index]*60/148;
 export function pursuitCleared(state){return state.spawned===PURSUIT_TOTAL&&state.cops.length===PURSUIT_TOTAL&&state.cops.every(c=>c.disabled);}
 export function studioComplete(state){return state.completed.every(Boolean)&&state.credEarned>=STUDIO_THRESHOLD;}
+function removeCops(game){for(const cop of game.pursuit.cops){game.scene.remove(cop.group);cop.group.traverse(m=>{if(m.isMesh){m.geometry.dispose();m.material.dispose();}});}game.pursuit.cops=[];}
 export function clearPursuit(game){
-  if(game.pursuit){for(const cop of game.pursuit.cops){game.scene.remove(cop.group);cop.group.traverse(m=>{if(m.isMesh){m.geometry.dispose();m.material.dispose();}});}}
+  if(game.pursuit)removeCops(game);resetParkedCars(game);
   if(game.studioProps){game.scene.remove(game.studioProps);game.studioProps.traverse(m=>{if(m.isMesh){m.geometry.dispose();m.material.map?.dispose();m.material.dispose();}});game.studioProps=null;}
   if(game.chaseCar){game.scene.remove(game.chaseCar.group);game.chaseCar.group.traverse(m=>{if(m.isMesh){m.geometry.dispose();m.material.dispose();}});game.chaseCar=null;}
   if(game.firstCar){game.car=game.firstCar;game.firstCar=null;}
@@ -142,7 +144,8 @@ export function updatePursuit(game,dt){
   }
 }
 export function unlockFreeRoam(game){
-  game.pursuit.phase='free';game.narrationQueue=[];game.toastTime=0;game.rap=null;game.voices.stop();$('#rap-panel').classList.add('hidden');game.active=0;game.yaw=0;game.pitch=-.08;
+  // The pursuit is over: the disabled police cars leave the street.
+  removeCops(game);game.driving=game.gunner=false;$('#drive-panel').classList.add('hidden');game.pursuit.phase='free';game.narrationQueue=[];game.toastTime=0;game.rap=null;game.voices.stop();$('#rap-panel').classList.add('hidden');game.active=0;game.yaw=0;game.pitch=-.08;
   game.characters.forEach((p,i)=>{p.group.position.set((i-1)*2,0,-18);p.group.rotation.y=0;p.body.position.set(0,0,0);p.arms.rotation.x=0;p.body.rotation.z=0;p.leftArm.rotation.x=0;p.weaponRigs[p.slot].forEach(g=>g.group.visible=true);});
   beginStreet(game);game.studioProps.visible=false;game.keys.clear();game.music.setScene('street');game.toast('MISSION 03 CLEAR / STREET CRED EARNED. Free roam unlocked. The block is yours—walk around and switch the crew.');
 }
@@ -155,7 +158,8 @@ export function pursuitHUD(game){
   $('#objective-count').textContent=s.phase==='studio'?`SESSION CRED ${s.credEarned}/${STUDIO_THRESHOLD} · VERSES ${s.completed.filter(Boolean).length}/3`:`PURSUIT CARS ${s.disabled}/${PURSUIT_TOTAL}`;
   $('#objective-progress').style.width=`${s.phase==='studio'?Math.min(100,s.credEarned/STUDIO_THRESHOLD*100):s.disabled/PURSUIT_TOTAL*100}%`;
   $('#enemy-remaining').textContent=s.phase==='free'?'FREE ROAM UNLOCKED':s.phase==='studio'?'ONE BEAT · THREE VOICES':`POLICE CARS LEFT ${PURSUIT_TOTAL-s.disabled}`;
-  if(game.driving){$('#drive-mode').textContent='DRACO / SUNROOF · Z78 / AUTOPILOT';$('#drive-help').textContent='RMB AIM ASSIST · LMB FIRE · R RELOAD · Q SIDEARM';$('#drive-kills').textContent=`DISABLED ${s.disabled}/${PURSUIT_TOTAL}`;}
+  if(game.driving&&s.phase==='free')$('#drive-kills').textContent='E GET OUT';
+  else if(game.driving){$('#drive-mode').textContent='DRACO / SUNROOF · Z78 / AUTOPILOT';$('#drive-help').textContent='RMB AIM ASSIST · LMB FIRE · R RELOAD · Q SIDEARM';$('#drive-kills').textContent=`DISABLED ${s.disabled}/${PURSUIT_TOTAL}`;}
   if(s.phase==='free')streetHUD(game);
   if(game.rap?.purpose==='studio'){
     const r=game.rap,turn=s.turn%3;$('#rap-session-name').textContent='AFTER HOURS / CREW CYPHER';$('#rap-score').textContent=`${ROSTER[turn].name} · ${r.hits}/8`;$('#rap-feedback').textContent=r.feedback;$('#rap-lyric').textContent=r.lines[Math.min(2,Math.floor(r.time/(STUDIO_TURN/3)))];

@@ -6,6 +6,7 @@ import {ALLEY_STOPS} from './alley.js';
 import {ACTIVITIES,CONTACTS,MISSION_FOUR,AMMO_STASHES} from './street.js';
 import {placeMarker,setContent,markerHTML,MarkerPool} from './markers.js';
 import {zoneAt,ZONES} from './territory.js';
+import {nearestCar,carPromptText} from './carjack.js';
 const point=(x,z)=>new THREE.Vector3(x,0,z);
 const NAMES=['DRACO','DOOM','Z78'];
 const living=g=>g.enemies.filter(e=>e.health>0);
@@ -59,8 +60,10 @@ export function contextPrompt(g){
    if(a.type==='delivery'&&!a.enemies.some(e=>e.health>0)&&g.elapsed>=(a.exchangeUntil||0))return{position:a.destination.clone().setY(1.9),owner:2,text:a.phase==='supplier'?'COLLECT JOB':a.phase==='pickup'?'PICK UP':'HAND OFF'};
    if(a.type==='stash'&&!a.enemies.some(e=>e.health>0))return{position:a.destination.clone().setY(1.2),text:'RESTOCK AMMO'};}
   return null;}
+ if(g.driving)return{position:g.car.group.position.clone().add(new THREE.Vector3(0,2.4,0)),text:'GET OUT'};
  if(near(MISSION_FOUR,3))return{position:MISSION_FOUR.clone().setY(1.6),text:'MISSION 4'};
  for(const [i,act]of ACTIVITIES.entries())if(!(g.street.cooldowns[i]>g.elapsed)&&near(point(act.x,act.z),3))return{position:new THREE.Vector3(act.x,1.6,act.z),owner:act.owner,text:act.verb||'START'};
+ const car=nearestCar(g);if(car)return{position:car.group.position.clone().add(new THREE.Vector3(0,2.2,0)),owner:2,text:carPromptText(car),hold:car.lockState==='locked'};
  return null;
 }
 let pool=null,ring=null;

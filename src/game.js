@@ -33,6 +33,7 @@ import { autoDrive, resumeRoute, carExtents } from './driver.js';
 import { beginRagdoll, updateRagdolls } from './ragdoll.js';
 import { impactDroplets, groundStain, updateBlood, clearBlood } from './blood.js';
 import { updateZone, addHeat } from './territory.js';
+import { freeRoamActive, stealCar, abandonCarWork, leaveCar, wreckCar } from './carjack.js';
 
 const $ = selector => document.querySelector(selector);
 const UP = new THREE.Vector3(0, 1, 0);
@@ -301,7 +302,7 @@ export class Game {
       if((event.code==='KeyV'||event.code==='KeyC'&&!this.keys.has('ShiftLeft')&&!this.keys.has('ShiftRight'))&&!this.driving&&!this.carWork)toggleCover(this);
       if (event.code==='KeyF') this.requestSpecial();
       if (this.driving) {
-        if(this.level===3){if(event.code==='KeyQ')this.swapWeapon();if(event.code==='KeyR')this.beginReload();return;}
+        if(this.level===3&&!freeRoamActive(this)){if(event.code==='KeyQ')this.swapWeapon();if(event.code==='KeyR')this.beginReload();return;}
         if(event.code==='Digit1')this.enterGunner(0);
         if(event.code==='Digit2')this.enterGunner(1);
         if(event.code==='Digit3')this.returnToDriver();
@@ -451,14 +452,14 @@ export class Game {
   switchCharacter(index) {
     if(this.net.guest){this.net.requestCharacter(index);return;}
     if(this.net.controlled(index)&&!this.net.remoteInput){this.toast('That character is controlled by another player.');return;}
-    if(this.level===3&&this.driving)return;
+    if(this.level===3&&this.driving&&!freeRoamActive(this))return;
     if(this.driving){if(index===0||index===1)this.enterGunner(index);if(index===2)this.returnToDriver();return;}
     if (!this.running || index === this.active || this.rap) return;
     if (this.characters[index].health <= 0) { this.toast('Crew member down. Restart to bring everyone home.'); return; }
     this.player.slide = 0;
     this.player.arms.position.x=0;this.player.body.position.set(0,0,0);this.player.body.scale.y=1;this.player.crouched=false;this.player.peek=false;
     this.player.body.rotation.x = 0;
-    resetEntryPose(this);this.carWork=null;document.querySelector('#car-work-panel').classList.add('hidden');
+    resetEntryPose(this);if(this.carWork)abandonCarWork(this);this.carWork=null;document.querySelector('#car-work-panel').classList.add('hidden');
     this.player.legs.forEach(leg => { leg.rotation.x = 0; });
     this.active = index;
     this.player.draw = WEAPONS[this.weaponState.id].draw;
@@ -705,7 +706,7 @@ export class Game {
   interact() {
     if (this.rap || this.carWork) return;
     if(this.level===3){
-      if(this.pursuit.phase==='free'){streetInteract(this);return;}
+      if(this.pursuit.phase==='free'){if(this.driving)this.exitCar();else if(!streetInteract(this))stealCar(this);return;}
       if(this.pursuit.phase==='entry'&&this.active===2&&this.player.group.position.distanceTo(this.car.group.position)<4.5){this.carWork=this.car.lockState==='locked'?{phase:'break',progress:0}:createBypass(this);renderCircuit(this);this.shooting=this.aiming=false;$('#car-work-panel').classList.remove('hidden');}
       return;
     }
@@ -738,12 +739,12 @@ export class Game {
 
   boardCar(){
     this.car.door.rotation.y=0;resetEntryPose(this);
-    if(this.level===3){launchChase(this);$('#drive-panel').classList.remove('hidden');return;}
+    if(this.level===3&&!freeRoamActive(this)){launchChase(this);$('#drive-panel').classList.remove('hidden');return;}
     this.gunner=this.active!==2;
     this.driving=true;this.car.door.rotation.y=0;resetEntryPose(this);this.shooting=this.aiming=false;this.keys.clear();
     this.characters.forEach(p=>{p.arms.position.set(0,1.5,0);p.crouched=false;p.peek=false;p.body.scale.y=1;p.body.position.x=0;});
     $('#drive-panel').classList.remove('hidden');
-    this.toast('Z78: Engine’s live. Hop in. 1 Draco, 2 doom, 3 wheel.');
+    this.toast(freeRoamActive(this)?'Z78: It’s ours now. 1 Draco, 2 doom, 3 wheel. E to get out.':'Z78: Engine’s live. Hop in. 1 Draco, 2 doom, 3 wheel.');
   }
 
   updateCarWork(dt){
@@ -758,12 +759,12 @@ export class Game {
       const seat=new THREE.Vector3(-.55,.1,-.3).applyAxisAngle(UP,this.car.yaw).add(this.car.group.position);
       this.player.group.position.lerp(seat,1-Math.exp(-dt*7));this.player.group.rotation.y=this.car.yaw;this.player.legs.forEach(l=>l.visible=false);this.player.arms.rotation.x=-.65;
       $('#car-work-panel .work-track').classList.add('hidden');$('#car-work-panel>.eyebrow').textContent='Z78 / HOTWIRE';$('#car-work-panel>small').textContent=`${this.input.label('menu')} CANCEL`;$('#car-work-title').textContent=(PUZZLE_INFO[task.type]||PUZZLE_INFO.circuit).title;$('#wire-puzzle').classList.remove('hidden');
-      if(this.active!==2||this.player.group.position.distanceTo(this.car.group.position)>4.5){resetEntryPose(this);this.carWork=null;$('#car-work-panel').classList.add('hidden');return;}
+      if(this.active!==2||this.player.group.position.distanceTo(this.car.group.position)>4.5){resetEntryPose(this);this.carWork=null;abandonCarWork(this);$('#car-work-panel').classList.add('hidden');return;}
       if(task.connected.length>=3){this.carWork=null;$('#car-work-panel').classList.add('hidden');this.car.lockState='ready';this.awardXP(2,20);this.boardCar();}return;
     }
     $('#car-work-panel .work-track').classList.remove('hidden');$('#car-work-panel>.eyebrow').textContent=`Z78 / HOLD ${this.input.label('interact')}`;$('#car-work-panel>small').textContent=`KEEP HOLDING ${this.input.label('interact')} · RELEASE TO CANCEL`;$('#wire-puzzle').classList.add('hidden');
     if(this.active!==2||!this.keys.has('KeyE')||this.player.group.position.distanceTo(this.car.group.position)>4.5){
-      resetEntryPose(this);this.carWork=null;$('#car-work-panel').classList.add('hidden');return;
+      resetEntryPose(this);this.carWork=null;abandonCarWork(this);$('#car-work-panel').classList.add('hidden');return;
     }
     const duration=task.phase==='break'?1.6:3;
     task.progress+=dt;
@@ -790,11 +791,13 @@ export class Game {
     this.keys.clear();
     this.characters.forEach((p,i) => {
       p.group.visible = true; p.legs.forEach(leg=>leg.visible=true);p.body.position.y=0;p.body.rotation.x=0;if(p.leftArm)p.leftArm.rotation.x=0;
-      p.group.position.copy(this.car.group.position).add(new THREE.Vector3((i-1)*2.2,0,3));
+      const offset=new THREE.Vector3((i-1)*2.2,0,3);if(freeRoamActive(this))offset.set(-2.4,0,(i-1)*1.6).applyAxisAngle(UP,this.car.yaw);
+      p.group.position.copy(this.car.group.position).add(offset);
       p.group.position.y = 0;
       p.grounded = true; p.velocityY = 0;
     });
     $('#drive-panel').classList.add('hidden');
+    if(freeRoamActive(this))leaveCar(this);
   }
 
   startAmbush() {
@@ -830,7 +833,8 @@ export class Game {
   }
 
   updateDriving(dt) {
-    if(this.level===3){updateChaseDriving(this,dt);return;}
+    if(this.level===3&&!freeRoamActive(this)){updateChaseDriving(this,dt);return;}
+    const free=freeRoamActive(this);
     this.gunner=this.active!==2;
     const car=this.car;
     let input={
@@ -844,13 +848,14 @@ export class Game {
     // Z78 keeps the wheel whenever he is not the player-controlled character.
     const previousMode=car.driverMode;
     car.driverIndex=2;car.driverMode=this.active===car.driverIndex&&!this.net.controlled(2)||manualDriver?'PLAYER':'AI';
-    if(car.driverMode==='AI'){if(previousMode!=='AI'&&car.ai)resumeRoute(this);input=autoDrive(this,dt);}
+    // Free roam autopilot only knows our block's street; elsewhere Z78 pulls over.
+    if(car.driverMode==='AI'){if(free&&Math.abs(car.group.position.x)>7.5)input={brake:true};else{if(previousMode!=='AI'&&car.ai)resumeRoute(this);input=autoDrive(this,dt);}}
     const movement=advanceCar(car,input,dt);
     const old=car.group.position.clone();
     car.group.position.x+=movement.x;car.group.position.z+=movement.z;
     const p=car.group.position;
     const extent=carExtents(car.yaw);
-    const collision=Math.abs(p.x)>8.2||p.z< -80||p.z>20||this.colliders.some(box=>box.max.y>.3&&box.min.y<1.6&&p.x+extent.x>box.min.x&&p.x-extent.x<box.max.x&&p.z+extent.z>box.min.z&&p.z-extent.z<box.max.z);
+    const collision=(free?p.x< -24||p.x>76:Math.abs(p.x)>8.2)||p.z< -80||p.z>20||this.colliders.some(box=>box.max.y>.3&&box.min.y<1.6&&p.x+extent.x>box.min.x&&p.x-extent.x<box.max.x&&p.z+extent.z>box.min.z&&p.z-extent.z<box.max.z);
     car.collisionCooldown=Math.max(0,car.collisionCooldown-dt);
     if(collision){
       p.copy(old);if(car.ai&&car.driverMode==='AI')car.ai.bumped=true;
@@ -871,6 +876,7 @@ export class Game {
       }
       enemy.ramCooldown=Math.max(0,(enemy.ramCooldown||0)-dt);
     }
+    if(free){if(car.integrity<=0)wreckCar(this);return;}
     const gate=DRIVE_ROUTE[car.gate];
     if(gate&&Math.hypot(p.x-gate[0],p.z-gate[1])<2.9&&car.speed>1){
       car.gate++;this.awardXP(2,XP_REWARDS.route);
