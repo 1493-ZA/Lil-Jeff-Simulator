@@ -59,7 +59,7 @@ function decorate(game,{body,round,skin,cloth},look){
  // Clothing layers on the torso.
  const o=look.outfit;
  if(o==='hoodie'||o==='zip-hoodie'){round(0,1.62,.12,.2,.12,.12,cloth);box(.14,.14,.03,look.layer,0,1.12,-.22);if(o==='zip-hoodie')box(.012,.55,.03,'#c9c4b8',0,1.22,-.226);}
- if(o==='open-jacket'||o==='bomber'||o==='overshirt'){for(const s of [-1,1])box(.17,.66,.04,look.layer,s*.15,1.2,-.215);if(o==='bomber')round(0,1.5,.04,.2,.05,.16,look.layer);}
+ if(o==='open-jacket'||o==='bomber'||o==='overshirt'){for(const s of [-1,1])game.box(.17,.66,.04,look.layer,s*.15,1.2,-.215,{parent:body,fabric:o==='overshirt'?'fleece':'leather'});if(o==='bomber')round(0,1.5,.04,.2,.05,.16,look.layer);}
  if(o==='puffer'){for(let i=0;i<4;i++)box(.6,.025,.44,look.layer,0,.98+i*.16,0);}
  if(o==='tracksuit'){for(const s of [-1,1])box(.02,.6,.03,'#ece8de',s*.25,1.2,-.16);}
  if(o==='flannel'){for(let i=0;i<4;i++)box(.58,.02,.43,look.layer,0,.96+i*.15,0);for(const s of [-1,1])box(.02,.66,.43,look.layer,s*.14,1.2,0);}
@@ -75,7 +75,7 @@ function decorate(game,{body,round,skin,cloth},look){
  if(look.chain){const chain=game.cylinder(.12,.02,'#cdb56f',0,1.55,-.12,body);chain.rotation.x=.7;}
 }
 export function buildCivilian(game,seed,team=null){
- const look=randomLook(seed,team);[look.top,look.layer].forEach(c=>game.fabric?.add(c));
+ const look=randomLook(seed,team);game.material('#000');[look.top,look.layer].forEach(c=>game.fabric.add(c));game.denim.add(look.pants);
  const p=game.buildPerson(look.top,false,-1,look);
  p.group.scale.setScalar(look.height);p.look=look;p.group.name=`civilian ${lookSignature(look)}`;
  p.arms.rotation.x=-1.25;p.leftArm.rotation.x=.12;

@@ -48,9 +48,11 @@ test('street cypher decodes character vocals and preserves the staged studio mic
  await free(page);await page.evaluate(()=>{__game.active=1;__game.player.group.position.set(-11,0,-25);__game.interact();});await page.waitForFunction(()=>__game.voices.last?.id==='street-1-0');await page.waitForFunction(()=>__game.voices.buffers.has('street-1-0'));expect(await page.evaluate(()=>__game.voices.buffers.get('street-1-0').duration)).toBeGreaterThan(1);
  await page.evaluate(async()=>{const {beginStudio}=await import('/src/pursuit.js');beginStudio(__game);});expect(await page.evaluate(()=>{let n=0;__game.studioProps.traverse(m=>{if(m.name==='central studio microphone')n++;});return n;})).toBe(1);await page.waitForFunction(()=>__game.rap.time>2);await page.screenshot({path:'test-results/polished-crew-studio.png'});
 });
-test('car doors swing outward from the front hinge on both mission cars',async({page})=>{
- await enter(page);const result=await page.evaluate(async()=>{const {DOOR_OPEN}=await import('/src/models.js');const {beginPursuit}=await import('/src/pursuit.js');const g=__game;g.running=false;const V=g.car.group.position.constructor;
-  const tip=car=>{car.door.rotation.y=0;car.group.updateMatrixWorld(true);const panel=car.door.children[0];const closed=panel.localToWorld(new V(0,0,.85)).sub(car.group.position);car.door.rotation.y=DOOR_OPEN;car.group.updateMatrixWorld(true);const open=panel.localToWorld(new V(0,0,.85)).sub(car.group.position);car.door.rotation.y=0;return{closedX:closed.x,openX:open.x};};
+test('car doors swing outward from the front hinge on the imported getaway sedan and the code-built coupe',async({page})=>{
+ await enter(page);await page.waitForFunction(()=>!!__game.car.model,null,{timeout:30000});const result=await page.evaluate(async()=>{const {DOOR_OPEN}=await import('/src/models.js');const {beginPursuit}=await import('/src/pursuit.js');const g=__game;g.running=false;const V=g.car.group.position.constructor;
+  // Works for code-built and imported doors: the door's outermost point in the car's own frame (driver side is -X).
+  const B=g.colliders[0].constructor;const outer=car=>{car.group.updateMatrixWorld(true);const b=new B().setFromObject(car.door);return Math.min(...[[b.min.x,b.min.z],[b.min.x,b.max.z],[b.max.x,b.min.z],[b.max.x,b.max.z]].map(([x,z])=>car.group.worldToLocal(new V(x,b.min.y,z)).x));};
+  const tip=car=>{car.door.rotation.y=0;const closedX=outer(car);car.door.rotation.y=DOOR_OPEN;const openX=outer(car);car.door.rotation.y=0;return{closedX,openX};};
   const first=tip(g.car);beginPursuit(g);const second=tip(g.car);return{first,second};});
  for(const car of [result.first,result.second]){expect(car.openX).toBeLessThan(car.closedX-.5);}
 });

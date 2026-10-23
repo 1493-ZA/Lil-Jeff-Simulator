@@ -1,4 +1,5 @@
 import {batchStatic} from './quality.js';
+import {upgradeWeapon,upgradeCar} from './assets.js';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
@@ -88,7 +89,8 @@ export function buildWeapon(game, id, parent, x) {
   flash.position.set(0, .025, -length - .16);
   flash.visible = false;
   group.add(flash);
-  batchStatic(group);return { group, muzzle, flash, recoil: 0, flashTime: 0 };
+  batchStatic(group);const gun={ group, muzzle, flash, recoil: 0, flashTime: 0 };
+  upgradeWeapon(game,id,gun);return gun;
 }
 
 // The driver door is on the car's left (-X) side, hinged at its front edge.
@@ -110,7 +112,7 @@ function extrudeSide(shape,width,bevel,detail){
  g.rotateY(-Math.PI/2);g.translate((width-bevel*2)/2,0,0);g.computeVertexNormals();return g;
 }
 const ARCH=.53,ARCH_Y=.45,ARCH_DX=Math.sqrt(ARCH*ARCH-.09*.09),ARCH_A=Math.atan2(.09,ARCH_DX);
-export function buildCar(game, position = [4, 0, -38], {paint='#343340',roof=null,trim='#1a1d22',detail=true,parked=false}={}) {
+export function buildCar(game, position = [4, 0, -38], {paint='#343340',roof=null,trim='#1a1d22',detail=true,parked=false,model=null,tint=null}={}) {
   const group = new THREE.Group();
   group.position.set(...position);
   group.name = 'Z78 getaway sedan';
@@ -169,5 +171,8 @@ export function buildCar(game, position = [4, 0, -38], {paint='#343340',roof=nul
   }
   if(roof)group.traverse(m=>{if(m.isMesh&&m.position.y>1.6&&m!==windshield)m.material=game.material(roof,{roughness:.35,metalness:.3});});
   batchStatic(group);batchStatic(details);
-  return { group, wheels, windowMeshes, door, details, roofY:1.79, lockState:'locked', speed: 0, yaw: 0, gate: 0, integrity: 100, collisionCooldown: 0 };
+  const car={ group, wheels, windowMeshes, door, details, roofY:1.79, lockState:'locked', speed: 0, yaw: 0, gate: 0, integrity: 100, collisionCooldown: 0 };
+  // An imported model (public/models/cars) replaces the code-built body when it loads.
+  if(model)upgradeCar(game,car,model,tint);
+  return car;
 }

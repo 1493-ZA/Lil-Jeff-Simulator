@@ -108,8 +108,10 @@ export function buildNeighborhood(game) {
     box(1.85,.12,2.4,'#243835',x,1.5,z);
   }
   // Parked cars use the same rounded car model (lighter detail, no interior).
-  for(const [x,z,color,turn] of [[-7,2,'#76625b',0],[7,-13,'#3f5268',1],[-7,-32,'#a3302b',0],[7,-61,'#726e59',1]]) {
-    const parked=buildCar(game,[x,0,z],{paint:color,parked:true,detail:game.quality==='high'});parked.group.rotation.y=turn*Math.PI;parked.group.name='parked car';
+  // Imported muscle cars and sedans (public/models/cars) replace these when they load;
+  // the red car keeps our block's colour as a tint.
+  for(const [x,z,color,turn,model,tint] of [[-7,2,'#76625b',0,'muscle-1'],[7,-13,'#3f5268',1,'sedan-1'],[-7,-32,'#a3302b',0,'muscle-2','#c23a32'],[7,-61,'#726e59',1,'sedan-1']]) {
+    const parked=buildCar(game,[x,0,z],{paint:color,parked:true,detail:game.quality==='high',model,tint});parked.group.rotation.y=turn*Math.PI;parked.group.name='parked car';
     game.colliders.push(new THREE.Box3(new THREE.Vector3(x-1.2,0,z-2.5),new THREE.Vector3(x+1.2,1.8,z+2.5)));
   }
   for(let z=14;z>-82;z-=23) for(const side of [-1,1]) {
@@ -135,7 +137,7 @@ export function buildNeighborhood(game) {
   box(1.1,1.5,.6,'#202a35',-12.8,.8,-25,true);
   box(.7,.7,.05,'#62636e',-12.8,.85,-24.68);
   box(1.4,.08,.7,'#38434e',-10,1.1,-26);
-  game.car=buildCar(game);
+  game.car=buildCar(game,undefined,{model:'sedan-2'});
   game.terminals=OBJECTIVES.map((o,i)=>{
     const ring=new THREE.Mesh(new THREE.TorusGeometry(i===2?3.5:2,.035,5,48),new THREE.MeshBasicMaterial({color:o.color,transparent:true,opacity:.6}));
     ring.rotation.x=Math.PI/2;
