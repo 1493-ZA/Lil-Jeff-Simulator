@@ -1,3 +1,4 @@
+import {attachNpcModel} from './crew-models.js';
 import * as THREE from 'three';
 import {safeFooting} from './companions.js';
 import {groundHeight} from './ground.js';
@@ -79,6 +80,7 @@ export function buildCivilian(game,seed,team=null){
  const p=game.buildPerson(look.top,false,-1,look);
  p.group.scale.setScalar(look.height);p.look=look;p.group.name=`civilian ${lookSignature(look)}`;
  p.arms.rotation.x=-1.25;p.leftArm.rotation.x=.12;
+ attachNpcModel(game,p,{seed});
  return p;
 }
 // ── Walking pedestrians ──────────────────────────────────────────────────────
