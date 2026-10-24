@@ -43,6 +43,26 @@ modelled for this project. The skeleton is MPFB's built-in Mixamo-compatible rig
 | `crew/*.glb` (rig) | MPFB 2 built-in "mixamo" rig | https://extensions.blender.org/add-ons/mpfb/ | CC0 (MPFB assets) |
 | `animations.glb` | Mixamo animations (Idle, Walking, Running, Fast Run, Crouching Idle, Crouched Walking, Rifle Aiming Idle, Pistol Idle, Jump, Death From The Front, Driving, Talking, Hip Hop Dancing), retargeted onto the crew rig | https://www.mixamo.com | Adobe Mixamo terms: royalty-free for use in games; not for redistribution as standalone animation files |
 
+## NPC characters (`public/models/characters/npc/`)
+
+`npc-01.glb` … `npc-12.glb` (civilians) and `rival-01.glb` … `rival-04.glb` (rivals) are original
+fictional characters built in Blender with MPFB 2 (MakeHuman). Bodies (the `male1591` /
+`female1605` proxy meshes), skins, eyes, brows, lashes, the `afro01`, `bob02`, `long01`,
+`ponytail01`, `short02/03/04` hair, the `male_casualsuit03/05`, `male_worksuit01`,
+`female_casualsuit01`, `female_elegantsuit01`, `female_sportsuit01` clothing and the
+`shoes03/04/06` footwear are from the MakeHuman system asset pack (CC0). Clothing was recoloured;
+denim, fleece and leather garments use the Poly Haven fabric textures listed below (CC0). Printed
+logos and brand-style marks were painted out. Puffer quilting, track-suit stripes, hoods,
+drawstrings, caps, beanies, locs, braids, buzz cuts, stubble and all jewellery (`chain`, `watch`,
+`earring_L/R`) were made for this project. The skeleton is MPFB's built-in Mixamo-compatible rig,
+the same one the crew uses, so the NPCs share `animations.glb`.
+
+| Files | Source | URL | Licence |
+| --- | --- | --- | --- |
+| `npc/*.glb` (bodies, skins, clothing, MakeHuman hair) | MakeHuman system assets (MakeHuman Community) | https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html | CC0 |
+| `npc/*.glb` (rig) | MPFB 2 built-in "mixamo" rig | https://extensions.blender.org/add-ons/mpfb/ | CC0 (MPFB assets) |
+| `npc/*.glb` (denim, fleece, leather weave) | Poly Haven fabric textures (see Textures) | https://polyhaven.com | CC0 |
+
 ## Textures (`public/textures/`)
 
 | Files | Source title | Author | URL | Licence |
