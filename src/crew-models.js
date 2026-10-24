@@ -61,6 +61,14 @@ async function attach(game,p,file){
  gltf.restHips??=(gltf.scene.updateMatrixWorld(true),gltf.scene.getObjectByName('mixamorigHips').getWorldPosition(new THREE.Vector3()).y);
  const clips=clipsFor(base,gltf.restHips/CLIP_HIPS);
  for(const [name,clip]of Object.entries(clips)){const a=skin.mixer.clipAction(clip);if(name==='death'||name==='jump'){a.setLoop(THREE.LoopOnce);a.clampWhenFinished=true;}skin.actions[name]=a;}
+ // Layers for armed characters: legs from the locomotion clip, chest and arms
+ // from the aim clip, so arms don't swing behind and the torso stays square.
+ for(const [name,clip]of Object.entries(clips)){
+  const lower=new THREE.AnimationClip(`L:${name}`,clip.duration,clip.tracks.filter(t=>!UPPER.test(t.name)));
+  skin.actions[`L:${name}`]=skin.mixer.clipAction(lower);
+  if(name==='death'||name==='jump'){skin.actions[`L:${name}`].setLoop(THREE.LoopOnce);skin.actions[`L:${name}`].clampWhenFinished=true;}
+ }
+ for(const name of ['rifle_aim','pistol_aim'])skin.actions[`U:${name}`]=skin.mixer.clipAction(new THREE.AnimationClip(`U:${name}`,clips[name].duration,clips[name].tracks.filter(t=>UPPER.test(t.name))));
  jewellery(model,skin);
  // The code-built body becomes an invisible rig; guns stay visible. Hits are
  // still tested against the rig, never the skinned mesh.
@@ -82,11 +90,17 @@ export async function attachNpcModel(game,p,{seed=0,rival=false}={}){
  if(rival)pullGunsIn(p);
  return true;
 }
-function play(skin,name,fade=.22){
- if(skin.current===name)return skin.actions[name];
- const next=skin.actions[name],prev=skin.actions[skin.current];
- next.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(fade).play();
- if(prev)prev.fadeOut(fade);skin.current=name;return next;
+const UPPER=/mixamorig(Spine|Neck|Head|Left(Shoulder|Arm|ForeArm|Hand)|Right(Shoulder|Arm|ForeArm|Hand))/;
+function swap(skin,slot,name,fade){
+ if(skin[slot]===name)return skin.actions[name];
+ const next=name&&skin.actions[name],prev=skin.actions[skin[slot]];
+ next?.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(fade).play();
+ if(prev)prev.fadeOut(fade);skin[slot]=name;return next;
+}
+// Base clip, plus an optional upper-body aim clip layered over the legs.
+function play(skin,name,fade=.22,upper=null){
+ const base=swap(skin,'current',upper?`L:${name}`:name,fade);swap(skin,'upper',upper&&`U:${upper}`,fade);
+ skin.clip=name;return base;
 }
 function rotateWorld(bone,axis,angle){
  bone.parent.getWorldQuaternion(q1);q2.setFromAxisAngle(axis,angle);
@@ -114,12 +128,12 @@ function reach([upper,lower,hand],target,pole,fingers){
 }
 // Where each wrist goes on a gun, in the gun's own space (grip at the origin).
 const GRIP=[0,-.03,.07];
-const SUPPORT={draco:[-.03,-.07,-.28],arp:[-.03,-.06,-.3],switch:[-.04,-.07,.05],akimbo:[-.04,-.07,.05]};
+const SUPPORT={draco:[-.03,-.07,-.22],arp:[-.03,-.06,-.24],switch:[-.04,-.07,.05],akimbo:[-.04,-.07,.05]};
 // Real arms are shorter than the old block arms: rifles come in to the
 // shoulder, a single pistol is held two-handed at centre, akimbo stays wide.
 // [x, y, forward] in the arms group; shots still leave from the muzzle.
 function holdPose(id,i,count){
- if(id==='draco'||id==='arp')return[.1,.06,-.22];
+ if(id==='draco'||id==='arp')return[.14,.06,-.3];
  if(count>1)return[i?-.3:.3,0,-.42];
  return[.08,.02,-.42];
 }
@@ -156,7 +170,10 @@ function choose(game,p,skin,dt){
 }
 // Shared per-frame pose: clip, hip turn, seat height, chest-to-aim and hands on guns.
 function drive(game,p,skin,name,rate,dt,armed){
- play(skin,name).timeScale=rate;
+ // Armed and on foot: legs follow the clip, the upper body holds the weapon.
+ const id=p.guns?.find(g=>shown(g.group))?gunId(p.guns[0]):null;
+ const layered=armed&&id&&!['death','talk','dance','sit_drive','rifle_aim','pistol_aim'].includes(name);
+ play(skin,name,.22,layered?(/switch|akimbo/.test(id)?'pistol_aim':'rifle_aim'):null).timeScale=rate;
  const seated=name==='sit_drive'&&game.car,toCar=seated?game.car.yaw-p.group.rotation.y:0;
  // Seated: hips go on the car seat whatever height the gameplay rig uses.
  const seatY=seated?(game.car.group.position.y+SEAT_Y-p.group.position.y):0;
@@ -167,6 +184,10 @@ function drive(game,p,skin,name,rate,dt,armed){
  skin.mixer.update(dt);
  if(!armed||name==='death'||name==='talk'||name==='dance')return;
  skin.root.updateMatrixWorld(true);
+ // The walk/run hips pitch forward; with the aim pose on top that hunches the
+ // chest over, so straighten the spine most of the way back to vertical.
+ if(skin.upper){const chest=skin.bones.spine[2],base=skin.bones.spine[0];chest.getWorldQuaternion(q1);const up=UP.clone().applyQuaternion(q1);
+  base.parent.getWorldQuaternion(q1);q2.setFromUnitVectors(up,up.clone().lerp(UP,.75).normalize());base.quaternion.premultiply(q1.clone().invert().multiply(q2).multiply(q1));base.updateMatrixWorld(true);}
  for(const b of skin.bones.spine)rotateWorld(b,UP,-hipYaw/3);
  const pitch=THREE.MathUtils.clamp(p.arms.rotation.x,-.9,.7),right=v2.set(1,0,0).applyQuaternion(p.group.getWorldQuaternion(q1)).clone();
  rotateWorld(skin.bones.spine[2],right,pitch*.35);rotateWorld(skin.bones.neck,right,pitch*.3);
@@ -209,6 +230,6 @@ export function updateNpcModels(game,dt){
   const every=dist<25?0:dist<45?2/30:5/30;if(skin.wait<every)continue;
   const step=Math.min(skin.wait,.25);skin.wait=0;
   const [name,rate]=npcClip(game,p,skin,step);
-  drive(game,p,skin,name,rate,step,dist<35&&p.guns?.length>0&&p.health>0);glint(skin,step);
+  drive(game,p,skin,name,rate,step,dist<60&&p.guns?.length>0&&p.health>0);glint(skin,step);
  }
 }

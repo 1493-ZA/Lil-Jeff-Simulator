@@ -158,7 +158,7 @@ export function pursuitHUD(game){
   $('#objective-count').textContent=s.phase==='studio'?`SESSION CRED ${s.credEarned}/${STUDIO_THRESHOLD} · VERSES ${s.completed.filter(Boolean).length}/3`:`PURSUIT CARS ${s.disabled}/${PURSUIT_TOTAL}`;
   $('#objective-progress').style.width=`${s.phase==='studio'?Math.min(100,s.credEarned/STUDIO_THRESHOLD*100):s.disabled/PURSUIT_TOTAL*100}%`;
   $('#enemy-remaining').textContent=s.phase==='free'?'FREE ROAM UNLOCKED':s.phase==='studio'?'ONE BEAT · THREE VOICES':`POLICE CARS LEFT ${PURSUIT_TOTAL-s.disabled}`;
-  if(game.driving&&s.phase==='free')$('#drive-kills').textContent='E GET OUT';
+  if(game.driving&&s.phase==='free')$('#drive-kills').textContent='E GET OUT · H DESPAWN CAR';
   else if(game.driving){$('#drive-mode').textContent='DRACO / SUNROOF · Z78 / AUTOPILOT';$('#drive-help').textContent='RMB AIM ASSIST · LMB FIRE · R RELOAD · Q SIDEARM';$('#drive-kills').textContent=`DISABLED ${s.disabled}/${PURSUIT_TOTAL}`;}
   if(s.phase==='free')streetHUD(game);
   if(game.rap?.purpose==='studio'){

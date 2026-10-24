@@ -29,3 +29,35 @@ test('free roam has no police cars and every parked car can be stolen, driven an
  expect(result.x).toBeLessThan(5);expect(result.exited).toBe(true);expect(result.parkedAgain).toBe(true);
  expect(result.home).toBeGreaterThan(55);expect(result.locked).toBe('locked');
 });
+
+test('the cross street drives from our block to the Opp Block; H despawns a car; pause menu respawns the crew',async({page})=>{
+ await free(page);
+ const r=await page.evaluate(async()=>{
+  const g=__game,{despawnCar,respawnCrew}=await import('/src/carjack.js');
+  g.running=true;g.switchCharacter(2);g.running=false;
+  const entry=g.parkedCars.find(e=>e.car.group.position.x<0),car=entry.car,home=car.group.position.clone();
+  g.player.group.position.set(car.group.position.x+2,0,car.group.position.z);g.keys.add('KeyE');g.interact();
+  for(let i=0;i<120&&g.carWork?.phase==='break';i++)g.updateCarWork(1/60);g.keys.clear();g.carWork.connected=[0,1,2];g.updateCarWork(1/60);
+  // From the middle of our street, turn east onto the cross street and drive to the Opp Block.
+  car.group.position.set(0,0,-30);car.yaw=-Math.PI/2;g.keys.add('KeyW');
+  for(let i=0;i<60*16;i++){g.updateDriving(1/60);if(car.group.position.x>52)break;}
+  g.keys.clear();const reached=car.group.position.x;
+  despawnCar(g);const back=car.group.position.distanceTo(home),driving=g.driving,colliderBack=g.colliders.includes(entry.collider);
+  g.characters.forEach(p=>p.group.position.set(70,0,10));respawnCrew(g);
+  return {reached,back,driving,colliderBack,crew:g.characters.map(p=>p.group.position.z)};
+ });
+ expect(r.reached).toBeGreaterThan(50);expect(r.back).toBeLessThan(.01);expect(r.driving).toBe(false);expect(r.colliderBack).toBe(true);expect(r.crew).toEqual([-18,-18,-18]);
+});
+
+test('shooting a pedestrian drops them and sends nearby pedestrians running',async({page})=>{
+ await free(page);
+ const r=await page.evaluate(async()=>{
+  const g=__game,T=await import('/node_modules/.vite/deps/three.js');const crowd=g.crowd,p=crowd.people[0],q=crowd.people[1];
+  p.group.visible=q.group.visible=true;q.group.position.copy(p.group.position).add(new T.Vector3(3,0,0));
+  const target=p.group.position.clone().add(new T.Vector3(0,1.2,0)),origin=target.clone().add(new T.Vector3(0,0,6));
+  const ray=new T.Raycaster(origin,target.clone().sub(origin).normalize());g.scene.updateMatrixWorld(true);
+  const hit=crowd.hit(ray,50);crowd.kill(hit.person,origin,hit.point,ray.ray.direction);
+  return {hit:hit.person===p,dead:p.dead,panic:q.panic};
+ });
+ expect(r.hit).toBe(true);expect(r.dead).toBe(true);expect(r.panic).toBeGreaterThan(0);
+});

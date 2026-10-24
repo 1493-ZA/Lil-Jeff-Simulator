@@ -34,7 +34,7 @@ import { beginRagdoll, updateRagdolls } from './ragdoll.js';
 import { impactDroplets, groundStain, updateBlood, clearBlood } from './blood.js';
 import { updateZone, addHeat } from './territory.js';
 import { attachCrewModel, attachNpcModel, updateCrewModels } from './crew-models.js';
-import { freeRoamActive, stealCar, abandonCarWork, leaveCar, wreckCar } from './carjack.js';
+import { despawnCar, freeRoamActive, stealCar, abandonCarWork, leaveCar, wreckCar } from './carjack.js';
 
 const $ = selector => document.querySelector(selector);
 const UP = new THREE.Vector3(0, 1, 0);
@@ -300,6 +300,7 @@ export class Game {
         return;
       }
       if (event.code === 'KeyE') this.interact();
+      if (event.code === 'KeyH' && freeRoamActive(this)) despawnCar(this);
       if((event.code==='KeyV'||event.code==='KeyC'&&!this.keys.has('ShiftLeft')&&!this.keys.has('ShiftRight'))&&!this.driving&&!this.carWork)toggleCover(this);
       if (event.code==='KeyF') this.requestSpecial();
       if (this.driving) {
@@ -388,7 +389,7 @@ export class Game {
     this.shooting = this.aiming = false;
     this.keys.clear();
     if (document.pointerLockElement) document.exitPointerLock();
-    $('#pause-menu').classList.remove('hidden');
+    $('#pause-menu').classList.remove('hidden');$('#respawn').classList.toggle('hidden',!freeRoamActive(this));
     const log=$('#narration-log');log.replaceChildren();
     for(const line of this.dialogueLog){const item=document.createElement('p');item.textContent=line;log.append(item);}
   }
@@ -590,6 +591,9 @@ export class Game {
       distance = hits[0].distance;
       victim = hits[0].object.userData.enemy;
     }
+    // Free roam: pedestrians can be hit too; anyone nearby runs.
+    const bystander=this.crowd?.hit(this.raycaster,distance);
+    if(bystander){distance=bystander.distance;victim=null;this.crowd.kill(bystander.person,origin,bystander.point,direction);if(character===this.player){this.hits++;this.hitTime=.14;}}
     const end = origin.clone().addScaledVector(direction, distance);
     this.tracer(origin, end, ROSTER[character.index].color);
     gun.flash.visible = true;gun.flash.scale.setScalar(.8+Math.random()*.4);

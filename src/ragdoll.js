@@ -36,7 +36,7 @@ export function beginRagdoll(game,victim,from=null){
  victim.ragdoll={pose:pose.name,start,end,t:0,twist:(Math.random()-.5)*.5,arms:pose.arms,legs:pose.legs,settled:false};
 }
 export function updateRagdolls(game,dt){
- for(const e of game.enemies){
+ for(const e of [...game.enemies,...(game.crowd?.people||[])]){
   const r=e.ragdoll;if(!r||r.settled)continue;
   r.t=Math.min(1,r.t+dt/.55);const k=r.t<1?1-Math.pow(1-r.t,3):1;
   e.group.quaternion.slerpQuaternions(r.start,r.end,k);
