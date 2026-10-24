@@ -33,6 +33,7 @@ import { autoDrive, resumeRoute, carExtents } from './driver.js';
 import { beginRagdoll, updateRagdolls } from './ragdoll.js';
 import { impactDroplets, groundStain, updateBlood, clearBlood } from './blood.js';
 import { updateZone, addHeat } from './territory.js';
+import { attachCrewModel, updateCrewModels } from './crew-models.js';
 import { freeRoamActive, stealCar, abandonCarWork, leaveCar, wreckCar } from './carjack.js';
 
 const $ = selector => document.querySelector(selector);
@@ -258,7 +259,7 @@ export class Game {
         velocityY: 0, grounded: true, slide: 0, slideDirection: new THREE.Vector3(), draw: WEAPONS[person.primary].draw,
         reloading: 0, cooldown: 0, recoil: 0, flashTime: 0, aiCooldown: 0, kills: 0, specialKills: 0, xp: charges[i], onFireUntil:0, streak:0, coverBox:null, lastHitAt: -Infinity, aiPlanCooldown: 0, aiGoal: null, aiState: 'FOLLOWING' };
     });
-    this.characters.forEach((character, i) => character.group.position.set((i - 1) * 3, 0, 12 + i * .5));
+    this.characters.forEach((character, i) => {character.group.position.set((i - 1) * 3, 0, 12 + i * .5);attachCrewModel(this,character);});
   }
 
   spawnEnemy(x, z) {
@@ -1150,7 +1151,7 @@ export class Game {
             gun.flashTime = Math.max(0, gun.flashTime - step);
             gun.flash.visible = gun.flashTime > 0;
             gun.recoil = damp(gun.recoil || 0, 0, 12, step);
-            gun.group.rotation.set(character===this.player?0:gun.recoil,0,0);gun.group.position.z=-.57+gun.recoil;
+            gun.group.rotation.set(character===this.player?0:gun.recoil,0,0);gun.group.position.z=(gun.reach??-.57)+gun.recoil;
           });
           if (character.reloading > 0) {
             character.reloading = Math.max(0, character.reloading - step);
@@ -1177,7 +1178,7 @@ export class Game {
       if(!this.rap&&!this.carWork&&(this.driving||this.aiming||this.shooting))alignWeapon(this,this.player,aimPoint(this));
       this.updateHUD();rapPresentation(this,dt);if(this.carWork)this.player.weaponRigs.flat().forEach(g=>g.group.visible=false);
     }
-    this.updateEffects(dt);updateRagdolls(this,dt);updateBlood(this,dt);
+    this.updateEffects(dt);updateRagdolls(this,dt);updateBlood(this,dt);updateCrewModels(this,dt);
     if(this.sky)this.sky.position.copy(this.camera.position);
     for(const p of [...this.characters,...this.enemies,...(this.street?.contacts||[])])if(p.hair)p.hair.visible=this.camera.position.distanceTo(p.group.position)<(this.quality==='low'?30:this.quality==='medium'?50:90);
     this.renderer.render(this.scene, this.camera);
