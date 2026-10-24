@@ -33,7 +33,7 @@ import { autoDrive, resumeRoute, carExtents } from './driver.js';
 import { beginRagdoll, updateRagdolls } from './ragdoll.js';
 import { impactDroplets, groundStain, updateBlood, clearBlood } from './blood.js';
 import { updateZone, addHeat } from './territory.js';
-import { attachCrewModel, updateCrewModels } from './crew-models.js';
+import { attachCrewModel, attachNpcModel, updateCrewModels } from './crew-models.js';
 import { freeRoamActive, stealCar, abandonCarWork, leaveCar, wreckCar } from './carjack.js';
 
 const $ = selector => document.querySelector(selector);
@@ -266,7 +266,7 @@ export class Game {
     const variant=(this.enemySerial=(this.enemySerial||0)+1)%10;
     const enemy = { ...this.buildPerson('#52636a', true,variant),variant,weaponId:['switch','arp','switch','draco','arp','switch','akimbo','arp','draco','switch'][variant], health: ENEMY_HEALTH.street, cooldown: 1.5, flashTime: 0, home: new THREE.Vector3(x, 0, z) };
     if(enemy.weaponId!=='switch'){const old=enemy.guns[0];old.group.removeFromParent();old.group.traverse(m=>{if(m.isMesh){m.geometry.dispose();m.material.dispose();}});enemy.guns=[buildWeapon(this,enemy.weaponId,enemy.arms,.4)];}
-    enemy.group.position.copy(enemy.home);plantOnGround(enemy);
+    enemy.group.position.copy(enemy.home);plantOnGround(enemy);attachNpcModel(this,enemy,{seed:variant,rival:true});
     enemy.group.traverse(object=>{if(!object.isMesh)return;object.userData.enemy=enemy;let node=object;while(node&&node!==enemy.group){if(node.name.startsWith('weapon-')){object.userData.weaponPart=true;break;}node=node.parent;}});
     this.enemies.push(enemy);
     return enemy;

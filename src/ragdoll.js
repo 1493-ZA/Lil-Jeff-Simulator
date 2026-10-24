@@ -13,6 +13,15 @@ const POSES=[
 const box=new THREE.Box3(),part=new THREE.Box3(),UP=new THREE.Vector3(0,1,0),v=new THREE.Vector3();
 export function beginRagdoll(game,victim,from=null){
  const away=from?victim.group.position.clone().sub(from).setY(0):null;
+ // Rigged models play their death clip instead: turned to face the shooter so
+ // they fall back away from them, upright on the ground, no rig tilt.
+ if(victim.skin){
+  if(away&&away.lengthSq()>.01)victim.group.rotation.y=Math.atan2(away.x,away.z);
+  victim.group.position.y=groundHeight(victim.group.position.x,victim.group.position.z);
+  // The gun belongs to the upright rig, so it drops out of sight.
+  for(const gun of victim.guns||[])gun.group.visible=false;
+  victim.ragdoll={pose:'animated',settled:true};return;
+ }
  // Bodies fall away from the shooter when possible, otherwise vary the pose.
  let pose=POSES[(victim.variant+(game.kills||0))%POSES.length];
  if(away&&away.lengthSq()>.01){
