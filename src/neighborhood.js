@@ -7,6 +7,7 @@ import { addSky } from './surfaces.js';
 import { FacadeBatch, surface, addWindow, addShutter } from './facades.js';
 import { decorateTerritories } from './territory.js';
 import { swapProps } from './assets.js';
+import { propSpot, propFallback, installProps } from './props.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // A fictional Chicago-inspired streetscape. Decorative boxes are instanced to
@@ -26,9 +27,10 @@ export function buildNeighborhood(game) {
   sun.target.position.set(0,0,-26);
   game.scene.add(sun, sun.target);
   const batches = new Map();
+  // box.tag marks pieces that a prop model replaces (see props.js).
   function box(w,h,d,color,x,y,z,solid=false,material=null) {
-    const key = material ? color + '-brick' : color;
-    if (!batches.has(key)) batches.set(key, { material: material || game.material(color, ['#2d3744','#415867','#425163'].includes(color)?{roughness:.27,metalness:.3}:{}), items: [] });
+    const tag=box.tag,key = (tag?tag+'|':'')+(material ? color + '-brick' : color);
+    if (!batches.has(key)) batches.set(key, { tag, material: material || game.material(color, ['#2d3744','#415867','#425163'].includes(color)?{roughness:.27,metalness:.3}:{}), items: [] });
     batches.get(key).items.push({w,h,d,x,y,z});
     if (solid) game.colliders.push(new THREE.Box3(new THREE.Vector3(x-w/2,y-h/2,z-d/2),new THREE.Vector3(x+w/2,y+h/2,z+d/2)));
   }
@@ -84,10 +86,11 @@ export function buildNeighborhood(game) {
       if(!lit&&(j+floor+i)%3!==0) box(.04,1.2,1.05,'#c38e56',face+out*.01,2.35+floor*2.8,wz);
     }
     for(const dz of [-4,4]) addShutter(facade,game,{x:face,z:z+dz,side:out});
-    box(.1,2.4,1.2,'#3b3432',side*14.4,1.25,z);
+    box.tag='door';box(.1,2.4,1.2,'#3b3432',side*14.4,1.25,z);box.tag=null;propSpot(game,'door',side*14.5,.1,z,-side*Math.PI/2);
     for(let floor=0;floor<3;floor++)facade.add(trim,.14,.12,12.2,side*14.53,3.6+floor*2.8,z);
     if(i%2===0){box(.6,.45,.7,'#a7aba6',side*14.15,5.3,z-4);box(.62,.06,.72,'#7c807b',side*14.15,5.55,z-4);}
-    for(let step=0;step<3;step++) box(1.1,.18*(step+1),2,'#8b8376',side*(13.2+step*.35),.09*(step+1),z,true);
+    box.tag='stoop';for(let step=0;step<3;step++) box(1.1,.18*(step+1),2,'#8b8376',side*(13.2+step*.35),.09*(step+1),z,true);box.tag=null;
+    propSpot(game,'stoop',side*13.925,.08,z,-side*Math.PI/2);
     for(const dz of [-6.5,6.5]) {
       if(side>0&&i===3&&dz>0)continue;
       box(2.5,.05,.05,'#303a40',side*13,1.2,z+dz);
@@ -102,10 +105,13 @@ export function buildNeighborhood(game) {
   const mural=game.label('KEEP THE LIGHTS ON','#f0b482',7,-14.25,5.3,-43,31);
   mural.rotation.y=Math.PI/2;
   // Alley dumpsters, utility poles, parked cars and a small basketball court.
+  box.tag='dumpster';
   for(const [x,z] of [[12,-3],[-12,-42],[12,-56]]) {
     box(1.7,1.4,2.3,'#3e5b52',x,.75,z,true);
     box(1.85,.12,2.4,'#243835',x,1.5,z);
+    propSpot(game,'dumpster',x,null,z);
   }
+  box.tag=null;
   // Parked cars use the same rounded car model (lighter detail, no interior).
   // Imported muscle cars and sedans (public/models/cars) replace these when they load;
   // the red car keeps our block's colour as a tint.
@@ -115,6 +121,7 @@ export function buildNeighborhood(game) {
   }
   for(let lampZ=14;lampZ>-82;lampZ-=23) for(const side of [-1,1]) {
     const x=side*10.8,z=side>0&&lampZ===-32?-37:lampZ;
+    propSpot(game,'street-light',x,0,z,side<0?0:Math.PI);box.tag='street-light';
     box(.18,8,.18,'#514b47',x,4,z);
     box(2.3,.14,.45,'#58606c',x-side,8,z);
     box(1.1,.07,.5,'#ffdc9c',x-side*1.5,7.88,z);
@@ -122,6 +129,7 @@ export function buildNeighborhood(game) {
       const lamp=new THREE.PointLight('#ffbd76',20,16,2);
       lamp.position.set(x,7.5,z); game.scene.add(lamp);
     }
+    box.tag=null;
     box(1.5,.08,.1,'#453c35',x,8.7,z);
     box(.025,.025,23,'#34343d',x,8.8,z-11.5);
   }
@@ -155,12 +163,14 @@ export function buildNeighborhood(game) {
   buildDistrict(game);decorateTerritories(game);
   const dummy=new THREE.Object3D();
   const geometry=new THREE.BoxGeometry(1,1,1);
-  for(const {material,items} of batches.values()) {
+  for(const {tag,material,items} of batches.values()) {
     const mesh=new THREE.InstancedMesh(geometry,material,items.length);
     items.forEach((item,i)=>{dummy.position.set(item.x,item.y,item.z);dummy.scale.set(item.w,item.h,item.d);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);});
     mesh.castShadow=mesh.receiveShadow=true;
     game.scene.add(mesh);
+    if(tag){mesh.name=`fallback ${tag}`;propFallback(game,tag,mesh);}
   }
+  installProps(game);
 }
 
 // Elevated railway over the street at z=-53. The deck clears the street by
@@ -171,12 +181,17 @@ export const RAIL={z:-53,minX:-40,maxX:33,top:8.4};
 function buildRailway(game,box){
  const z=RAIL.z,solid=true;
  game.railBoxes=[];const deck=(w,h,d,c,x,y,zz)=>{box(w,h,d,c,x,y,zz,solid);game.railBoxes.push(game.colliders.at(-1));};
+ box.tag='rail-deck';
  deck(RAIL.maxX-RAIL.minX,.8,6.8,'#39464d',(RAIL.minX+RAIL.maxX)/2,8,z);
  for(const dz of [-3.55,3.55])box(RAIL.maxX-RAIL.minX,1.1,.3,'#2f3a40',(RAIL.minX+RAIL.maxX)/2,8.2,z+dz);
  for(let x=RAIL.minX+.6;x<RAIL.maxX;x+=1.2)box(.18,.2,6.2,'#736e65',x,8.5,z);
  for(const dz of [-1.6,1.6,-.85,.85])box(RAIL.maxX-RAIL.minX,.15,.1,'#a0a7ab',0+(RAIL.minX+RAIL.maxX)/2,8.68,z+dz);
+ // Six 12 m deck segments, stretched slightly to span the whole run.
+ const span=(RAIL.maxX-RAIL.minX)/6;for(let i=0;i<6;i++)propSpot(game,'rail-deck',RAIL.minX+span*(i+.5),RAIL.top,z,0,{scaleX:span/12});
  // Piers: at the kerbs (never in a lane), inside the open lots and at the end.
- for(const x of [-10.5,10.5,-20,20,-31,31.5])for(const dz of [-3,3])box(.5,7.6,.5,'#3e4b51',x,3.8,z+dz,solid);
+ box.tag='rail-pier';
+ for(const x of [-10.5,10.5,-20,20,-31,31.5])for(const dz of [-3,3]){box(.5,7.6,.5,'#3e4b51',x,3.8,z+dz,solid);propSpot(game,'rail-pier',x,0,z+dz);}
+ box.tag=null;
  box(2,7.6,7,'#55585a',32.5,3.8,z,solid);
  // A stopped train at the station (rounded silhouette, windows both sides).
  const train=new THREE.Group();train.name='elevated train';game.scene.add(train);
@@ -185,14 +200,19 @@ function buildRailway(game,box){
   for(const dx of [-3,3]){game.box(1.8,.45,2.4,'#25292c',x+dx,8.95,z-1.1,{parent:train});}
   game.colliders.push(new THREE.Box3(new THREE.Vector3(x-4.6,8.7,z-2.65),new THREE.Vector3(x+4.6,11.4,z+.45)));game.railBoxes.push(game.colliders.at(-1));};
  car(-26.5);car(-17);
+ propFallback(game,'train-car',train);for(const x of [-26.5,-17])propSpot(game,'train-car',x,8.755,z-1.1);
  // West lot: station platform south of the deck, reached by two stair flights.
  deck(10,.3,3.2,'#6f7472',-20,8.25,-58);
  // Platform rail leaves an opening where the upper flight arrives (x≈-16.5).
  for(let x=-24.8;x<=-17.6;x+=.8)box(.05,1,.05,'#3b4246',x,8.9,-59.55);box(7.4,.06,.06,'#3b4246',-21.1,9.4,-59.55);
  const rise=.35,run=.5;
+ box.tag='station-stairs';
  for(let n=0;n<12;n++){const h=rise*(n+1);box(run,h,1.8,'#7d807c',-16-n*run-run/2,h/2,-62.5,solid);}
+ box.tag=null;propSpot(game,'station-stairs',-16,0,-62.5,Math.PI);propSpot(game,'station-stairs',-22.2,4.2,-60.5,0);
  box(2,4.2,3.8,'#7d807c',-23.2,2.1,-61.5,solid);
+ box.tag='station-stairs';
  for(let n=0;n<12;n++){const h=4.2+rise*(n+1);box(run,h,1.8,'#7d807c',-22.2+n*run+run/2,h/2,-60.5,solid);}
+ box.tag=null;
  for(const [x,y,zz,len]of [[-19.1,3.2,-63.45,6],[-19.1,7.4,-61.45,6]])box(len,.06,.06,'#3b4246',x,y,zz);
  box(.12,1.1,1.8,'#3b4246',-15.95,8.95,-60.5,solid);box(.12,1.1,3.2,'#3b4246',-14.95,8.95,-58,solid);
  const sign=game.label('AFTER HOURS STATION','#f3e2b8',4.5,-20,9.9,-59.7,30);sign.rotation.y=Math.PI;
