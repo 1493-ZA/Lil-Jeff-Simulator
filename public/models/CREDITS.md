@@ -30,16 +30,16 @@ lookalikes and are not affiliated with or endorsed by any manufacturer.
 ## Crew characters (`public/models/characters/`)
 
 `crew/draco.glb`, `crew/doom.glb` and `crew/z78.glb` are original fictional characters
-built in Blender with MPFB 2 (MakeHuman). The base bodies, skins, eyes, brows, lashes,
-the `afro01` hair and the `male_casualsuit05/06`, `shoes03/06` clothing are from the
+built in Blender with MPFB 2 (MakeHuman). The base bodies, skins, eyes, brows, lashes
+and the `male_casualsuit05/06`, `shoes03/06` clothing are from the
 MakeHuman system asset pack, all CC0. Clothing was recoloured and brand-style marks on
-the tee and sneaker textures were painted out. The twists/fade/braids, beard shading,
+the tee and sneaker textures were painted out. King Draco's dyed locs, the fade, braids, beard shading,
 drawstrings and all jewellery (`chain`, `chain_2`, `pendant`, `watch`, `earring_L/R`) were
 modelled for this project. The skeleton is MPFB's built-in Mixamo-compatible rig.
 
 | Files | Source | URL | Licence |
 | --- | --- | --- | --- |
-| `crew/*.glb` (bodies, skins, clothing, MakeHuman hair) | MakeHuman system assets (MakeHuman Community) | https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html | CC0 |
+| `crew/*.glb` (bodies, skins, clothing) | MakeHuman system assets (MakeHuman Community) | https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html | CC0 |
 | `crew/*.glb` (rig) | MPFB 2 built-in "mixamo" rig | https://extensions.blender.org/add-ons/mpfb/ | CC0 (MPFB assets) |
 | `animations.glb` | Mixamo animations (Idle, Walking, Running, Fast Run, Crouching Idle, Crouched Walking, Rifle Aiming Idle, Pistol Idle, Jump, Death From The Front, Driving, Talking, Hip Hop Dancing), retargeted onto the crew rig | https://www.mixamo.com | Adobe Mixamo terms: royalty-free for use in games; not for redistribution as standalone animation files |
 
