@@ -63,6 +63,19 @@ the same one the crew uses, so the NPCs share `animations.glb`.
 | `npc/*.glb` (rig) | MPFB 2 built-in "mixamo" rig | https://extensions.blender.org/add-ons/mpfb/ | CC0 (MPFB assets) |
 | `npc/*.glb` (denim, fleece, leather weave) | Poly Haven fabric textures (see Textures) | https://polyhaven.com | CC0 |
 
+## Street props (`public/models/props/`)
+
+`hydrant`, `trash-can`, `dumpster`, `street-light`, `door`, `stoop`, `station-stairs`, `rail-deck`,
+`rail-pier` and `train-car` were modelled in Blender for this project. Their painted-metal,
+galvanised, plastic, wood, rail-steel, brushed-steel and wired-glass textures were generated
+procedurally for this project. The only third-party texture is the concrete on `stoop` and
+`station-stairs`. The train car and the railway are fictional, with no transit-agency or brand
+markings.
+
+| Files | Source | URL | Licence |
+| --- | --- | --- | --- |
+| `props/stoop.glb`, `props/station-stairs.glb` (concrete) | Concrete Wall 007 by Charlotte Baglioni, Dario Barresi, Rico Cilliers (same as `building/concrete-trim`) | https://polyhaven.com/a/concrete_wall_007 | CC0 |
+
 ## Textures (`public/textures/`)
 
 | Files | Source title | Author | URL | Licence |
