@@ -202,3 +202,66 @@ Credit sources in CREDITS.md. Commit, push and open a pull request into main.
 - **NPCs:** the crowd and rivals pick from the npc and rival models with colour
   variation. The code-built fallback stays for Low graphics and for a model that
   fails to load.
+
+## Step 4: King Draco's dreads
+
+```text
+In my Lil-Jeff-Simulator repo, make a branch called art/draco-dreads. Open
+art/characters (the crew .blend files) in Blender via Blender MCP and change
+King Draco's hair:
+
+- Replace his short twists with shoulder-length dreadlocks (locs): about 30–40
+  locs, each a slightly uneven rope, falling from the crown to just past the
+  shoulders, a few draped forward over the collarbones.
+- Dye: natural black at the roots, fading to honey-blonde/copper over the last
+  third of each loc. Use a vertex-colour or UV gradient, not a separate mesh.
+- Skin the top half of each loc to mixamorig:Head. Blend the lower half from
+  Head to Neck/Spine2 so they swing a little without poking through the
+  jacket. Check them in the idle, run and sit_drive clips from
+  public/models/characters/animations.glb.
+- Keep everything else identical: skeleton, bone names, T-pose rest, scale,
+  the chain, pendant, watch, earrings and the grip_R empty.
+- Keep the whole file under 32k triangles (the locs can use about 4k).
+
+Export over public/models/characters/crew/draco.glb with the same settings as
+before. Commit, push, and open a pull request into main titled
+"King Draco dreads".
+```
+
+## Step 5: Street prop models
+
+```text
+Make a branch called art/street-props. Using Blender via Blender MCP
+(Poly Haven / Sketchfab CC0 or CC BY models are fine as a starting point; keep
+them fictional, with no real city, transit or brand logos), make these props
+and export each one to public/models/props/ as GLB:
+- Real-world metres, +Y up, transforms applied.
+- Origin at the centre of the base unless the entry says otherwise.
+- Textures embedded, at most 1024 px.
+
+| File | What | Size (metres) | Notes |
+| --- | --- | --- | --- |
+| hydrant.glb | Chicago-style fire hydrant, red, chipped paint | 0.8 tall | outlets facing ±X |
+| trash-can.glb | city litter bin with a domed lid | 0.55 wide, 1.0 tall | name the main body material `paint` (the game tints it red or blue) |
+| dumpster.glb | steel dumpster with two plastic lids, dented, green | 1.7 X × 1.4 tall × 2.3 Z | |
+| street-light.glb | tall steel street light | pole 8.0 tall at the origin, arm reaching 2.3 toward +X | empty named `lamp` at the bulb |
+| door.glb | apartment street door: steel or wood, small window, frame, handle, a little worn | 1.2 wide × 2.4 tall × 0.15 deep | facing +Z |
+| stoop.glb | 3-step concrete stoop with iron handrails both sides | 2.0 X × 1.05 Z × 0.54 tall | steps rise toward -Z |
+| station-stairs.glb | one straight flight of 12 concrete steps with metal handrails | 6.0 long × 1.8 wide × 4.2 tall | rises toward +X; each step 0.35 rise × 0.5 run; origin at the bottom front edge, centre of the width |
+| rail-deck.glb | one segment of a riveted steel elevated railway: girders under the deck, low side walls, wooden ties, two rails | 12.0 X × 6.8 Z | origin at the centre of the deck's top surface; tiles end to end along X |
+| rail-pier.glb | riveted steel column with base plate and cap | 0.5 × 0.5, 7.6 tall | |
+| train-car.glb | fictional elevated-train car: brushed steel, windows and doors both sides, bogies | body 9.2 X × 3.1 Z × 2.5 tall, plus bogies 0.45 below | origin at the rail top, centre of the car |
+
+Triangle budgets:
+- Small props: under 3k each.
+- street-light, stoop and door: under 2.5k.
+- rail-deck: under 5k.
+- train-car: under 15k.
+
+Add every source to CREDITS.md. Commit, push, and open a pull request into
+main titled "Street prop models".
+```
+
+After each of these is merged, the cloud session swaps the models in:
+- **Draco:** the new file loads automatically.
+- **Props:** they replace the code-built hydrants, trash cans, dumpsters, street lights, doors, stoops, station stairs, railway deck, piers and train. Colliders stay as they are.

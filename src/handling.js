@@ -18,6 +18,7 @@ export function aimPoint(game){
   for(const box of game.colliders){const hit=raycaster.ray.intersectBox(box,new THREE.Vector3());if(hit)distance=Math.min(distance,hit.distanceTo(raycaster.ray.origin));}
   const targets=game.enemies.filter(e=>e.health>0).map(e=>e.group);
   if(game.pursuit)targets.push(...game.pursuit.cops.filter(c=>!c.disabled).flatMap(c=>c.parts));
+  if(game.crowd)targets.push(...game.crowd.people.filter(p=>!p.dead&&p.group.visible).map(p=>p.group));
   for(const hit of raycaster.intersectObjects(targets,true))if(!hit.object.userData.weaponPart)distance=Math.min(distance,hit.distance);
   return raycaster.ray.at(distance,new THREE.Vector3());
 }

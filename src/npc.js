@@ -1,4 +1,6 @@
 import {attachNpcModel} from './crew-models.js';
+import {beginRagdoll} from './ragdoll.js';
+import {groundStain,impactDroplets} from './blood.js';
 import * as THREE from 'three';
 import {safeFooting} from './companions.js';
 import {groundHeight} from './ground.js';
@@ -94,7 +96,8 @@ export class Crowd{
   for(let i=0;i<count;i++){
    const lane=LANES[i%LANES.length],team=lane[4]==='commerce'?null:lane[4];
    const p=buildCivilian(game,1000+i*37+Math.floor(Math.random()*9000),team);
-   p.lane=lane;p.dir=i%2?1:-1;p.t=Math.random();p.speed=1.15+Math.random()*.5;p.offset=0;p.panic=0;
+   p.lane=lane;p.dir=i%2?1:-1;p.t=Math.random();p.speed=1.15+Math.random()*.5;p.offset=0;p.panic=0;p.variant=i;
+   p.group.traverse(m=>{if(m.isMesh)m.userData.civilian=p;});
    this.place(p);p.gaitPosition=null;this.people.push(p);
   }
  }
@@ -104,6 +107,7 @@ export class Crowd{
   const g=this.game,eye=g.camera.position,far=g.quality==='low'?45:g.quality==='medium'?60:75;this.frame++;
   const gunfire=g.lastGunfire&&g.elapsed-g.lastGunfire.time<2.5?g.lastGunfire.position:null;
   for(const [i,p]of this.people.entries()){
+   if(p.dead){if(g.elapsed>p.respawnAt&&p.group.position.distanceTo(eye)>30)this.revive(p);else continue;}
    const dist=p.group.position.distanceTo(eye);
    // Distance-based updates: full rate nearby, every 4th frame mid-range,
    // hidden but still progressing along the lane far away.
@@ -123,6 +127,26 @@ export class Crowd{
    const d=next.clone().sub(from);if(d.lengthSq()>1e-6)p.group.rotation.y=THREE.MathUtils.lerp(p.group.rotation.y,p.group.rotation.y+Math.atan2(Math.sin(Math.atan2(-d.x,-d.z)-p.group.rotation.y),Math.cos(Math.atan2(-d.x,-d.z)-p.group.rotation.y)),Math.min(1,step*8));
    if(visible){animateLocomotion(p,step,{});p.arms.rotation.x=THREE.MathUtils.damp(p.arms.rotation.x,p.panic>0?-2.2:-1.3+Math.sin(p.gaitPhase||0)*.15,8,step);if(p.hair)p.hair.visible=dist<30;}
   }
+ }
+ // Nearest pedestrian on a shot's ray (tested against the invisible rig).
+ hit(raycaster,maxDistance){
+  const alive=this.people.filter(p=>!p.dead&&p.group.visible);if(!alive.length)return null;
+  const h=raycaster.intersectObjects(alive.map(p=>p.group),true).find(h=>h.object.userData.civilian&&h.distance<maxDistance);
+  return h?{person:h.object.userData.civilian,distance:h.distance,point:h.point}:null;
+ }
+ // A shot pedestrian goes down where they stand and everyone nearby scatters.
+ // Bodies clear after a while and the person comes back on a far lane.
+ kill(p,from,point,direction){
+  const g=this.game;p.dead=true;p.health=0;p.respawnAt=g.elapsed+25;
+  beginRagdoll(g,p,from);groundStain(g,p.group.position);impactDroplets(g,point,direction);
+  for(const o of this.people)if(!o.dead&&o.group.position.distanceTo(p.group.position)<40){o.panic=6;o.dir=Math.sign(this.lanePointDelta(o,p.group.position))||o.dir;}
+ }
+ revive(p){
+  const eye=this.game.player.group.position;p.dead=false;p.health=undefined;p.ragdoll=null;p.panic=0;
+  p.body.position.set(0,0,0);p.body.rotation.set(0,0,0);p.arms.rotation.x=-1.25;p.legs.forEach(l=>{l.rotation.set(0,0,0);if(l.userData.shin)l.userData.shin.rotation.x=0;});
+  // Come back somewhere out of sight.
+  for(let k=0;k<8;k++){p.lane=LANES[Math.floor(Math.random()*LANES.length)];p.t=Math.random();if(this.lanePoint(p).distanceTo(eye)>45)break;}
+  p.group.quaternion.identity();this.place(p);p.gaitPosition=null;if(p.skin)p.skin.last.copy(p.group.position);
  }
  lanePointDelta(p,from){const [, , ,axis]=p.lane;const pos=p.group.position;const away=axis==='z'?pos.z-from.z:pos.x-from.x;const forward=p.lane[2]>p.lane[1]?1:-1;return away*forward;}
  dispose(){for(const p of this.people){p.group.removeFromParent();p.group.traverse(m=>{if(m.isMesh){m.geometry.dispose();m.material.dispose();}});}this.people=[];}

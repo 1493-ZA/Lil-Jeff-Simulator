@@ -11,6 +11,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 
 // A fictional Chicago-inspired streetscape. Decorative boxes are instanced to
 // keep the denser neighborhood affordable on integrated graphics.
+export const ROAD_Z=-30;
 export function buildNeighborhood(game) {
   game.scene.background = new THREE.Color('#555c72');
   addSky(game);
@@ -38,6 +39,12 @@ export function buildNeighborhood(game) {
     facade.add(surface(game,'street/sidewalk',{color:'#d8d4cc'}),6,.16,106,side*12,.02,-28);
     facade.add(surface(game,'street/curb',{color:'#cfcac0'}),.2,.25,106,side*9,.06,-28);
   }
+  // Cross street to Commerce Row and the Opp Block (z -30), cut through the
+  // sidewalks so cars can drive between the blocks.
+  const road=surface(game,'street/asphalt',{color:'#c9c9c9'});
+  facade.add(road,6.2,.02,5.6,12,.11,ROAD_Z);facade.add(road,29.2,.02,5.6,29.6,.035,ROAD_Z);facade.add(road,3.2,.02,5.6,45.6,.09,ROAD_Z);
+  for(let x=17;x<44;x+=4)box(2,.012,.12,'#c4a96b',x,.05,ROAD_Z);
+  for(const dz of [-2.7,2.7])box(28,.012,.1,'#d9d3c0',30,.05,ROAD_Z+dz);
   for(let z=19;z>-81;z-=5) {
     box(.12,.012,2.2,'#c4a96b',-.14,.01,z);
     box(.12,.012,2.2,'#c4a96b',.14,.01,z);
@@ -50,7 +57,7 @@ export function buildNeighborhood(game) {
   for(const z of [-15.2,-64.2])box(8.4,.012,.32,'#d9d3c0',z<-40?-4.2:4.2,.014,z);
   // Hydrants: code-built fallback, replaced by public/models/props/hydrant.glb if present.
   const hydrants=new THREE.Group();hydrants.name='hydrant fallback';game.scene.add(hydrants);
-  const hydrantSpots=[[-9.6,-4,Math.PI/2],[9.6,-28,-Math.PI/2],[-9.6,-58,Math.PI/2]];
+  const hydrantSpots=[[-9.6,-4,Math.PI/2],[9.6,-21,-Math.PI/2],[-9.6,-58,Math.PI/2]];
   for(const [x,z] of hydrantSpots){game.box(.26,.55,.26,'#b23b2c',x,.28,z,{parent:hydrants});game.box(.34,.08,.34,'#b23b2c',x,.58,z,{parent:hydrants});game.box(.4,.1,.12,'#9b3326',x,.38,z,{parent:hydrants});}
   swapProps(game,'props/hydrant.glb',hydrants,hydrantSpots,{height:.8});
   // Crosswalk, resurfaced asphalt, stoops and narrow residential lots.
@@ -60,6 +67,8 @@ export function buildNeighborhood(game) {
     // Lot 4 (z -61…-49) stays open on both sides: the elevated railway crosses
     // there, with the station stairs on the west lot and parking on the east.
     if(i===4)continue;
+    // East lot 2 makes way for the road to Commerce Row and the Opp Block.
+    if(side>0&&i===2)continue;
     const z=9-i*16;
     const x=side*20;
     const h=9+(i%3)*1.8;
@@ -80,6 +89,7 @@ export function buildNeighborhood(game) {
     if(i%2===0){box(.6,.45,.7,'#a7aba6',side*14.15,5.3,z-4);box(.62,.06,.72,'#7c807b',side*14.15,5.55,z-4);}
     for(let step=0;step<3;step++) box(1.1,.18*(step+1),2,'#8b8376',side*(13.2+step*.35),.09*(step+1),z,true);
     for(const dz of [-6.5,6.5]) {
+      if(side>0&&i===3&&dz>0)continue;
       box(2.5,.05,.05,'#303a40',side*13,1.2,z+dz);
       for(let p=0;p<6;p++) box(.035,1.4,.035,'#303a40',side*(11.8+p*.45),.7,z+dz);
     }
@@ -103,8 +113,8 @@ export function buildNeighborhood(game) {
     const parked=buildCar(game,[x,0,z],{paint:color,parked:true,detail:game.quality==='high',model,tint});parked.group.rotation.y=turn*Math.PI;parked.group.name='parked car';
     registerParkedCar(game,parked,new THREE.Box3(new THREE.Vector3(x-1.2,0,z-2.5),new THREE.Vector3(x+1.2,1.8,z+2.5)));
   }
-  for(let z=14;z>-82;z-=23) for(const side of [-1,1]) {
-    const x=side*10.8;
+  for(let lampZ=14;lampZ>-82;lampZ-=23) for(const side of [-1,1]) {
+    const x=side*10.8,z=side>0&&lampZ===-32?-37:lampZ;
     box(.18,8,.18,'#514b47',x,4,z);
     box(2.3,.14,.45,'#58606c',x-side,8,z);
     box(1.1,.07,.5,'#ffdc9c',x-side*1.5,7.88,z);

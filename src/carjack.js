@@ -31,6 +31,7 @@ function release(g,car){const entry=entryOf(g,car);if(entry)drop(g,entry.collide
 function park(g,car){const entry=entryOf(g,car);if(!entry)return;drop(g,entry.collider);entry.collider=footprint(car);g.colliders.push(entry.collider);}
 export function stealCar(g){
  const car=nearestCar(g);if(!car)return false;
+ car.home??={position:car.group.position.clone(),yaw:car.group.rotation.y};
  if(g.active!==2){g.toast('Z78 handles the cars. Switch to 3.');return true;}
  if(g.car!==car&&g.car)park(g,g.car);
  g.car=car;car.yaw=car.group.rotation.y;car.speed=0;car.gate=DRIVE_ROUTE.length;car.ai=null;release(g,car);
@@ -45,6 +46,24 @@ export function leaveCar(g){park(g,g.car);}
 export function wreckCar(g){
  const car=g.car;car.wrecked=true;car.speed=0;g.exitCar();car.door.rotation.y=-.5;
  g.toast('Z78: She’s done. Find another ride.');
+}
+// H: a stuck or wrecked car goes back to where it was first found, and the
+// crew is left standing on the road where they were.
+export function despawnCar(g){
+ const pos=g.player.group.position,away=c=>{const h=entryOf(g,c)?.home||c.home;return h&&c.group.position.distanceTo(h.position)>1;};
+ const car=g.driving?g.car:[g.chaseCar,...(g.parkedCars||[]).map(e=>e.car)].find(c=>c&&away(c)&&c.group.position.distanceTo(pos)<7);
+ if(!car||!away(car)){g.toast('Nothing to despawn. Stand next to the car (or sit in it) and press H.');return false;}
+ if(g.driving)g.exitCar();if(g.carWork){g.carWork=null;$('#car-work-panel').classList.add('hidden');}
+ const entry=entryOf(g,car),home=entry?.home||car.home;
+ car.group.position.copy(home.position);car.yaw=home.yaw;car.group.rotation.set(0,car.yaw,0);car.speed=0;car.ai=null;car.door.rotation.y=0;car.wrecked=false;car.integrity=100;
+ if(entry){drop(g,entry.collider);entry.collider=footprint(car);g.colliders.push(entry.collider);}
+ g.toast('Car despawned. It is back where you found it.');return true;
+}
+// Pause menu: put the crew back on Our Block if anyone gets stuck.
+export function respawnCrew(g){
+ if(g.driving)g.exitCar();if(g.carWork){g.carWork=null;$('#car-work-panel').classList.add('hidden');}
+ g.characters.forEach((p,i)=>{p.group.position.set((i-1)*2,0,-18);p.group.visible=true;p.velocityY=0;p.grounded=true;p.slide=0;p.crouched=p.peek=false;p.coverBox=null;p.legs.forEach(l=>l.visible=true);p.body.position.set(0,0,0);p.body.rotation.set(0,0,0);p.moveVelocity?.set(0,0,0);});
+ g.yaw=0;g.pitch=-.08;g.toast('Crew respawned on Our Block.');
 }
 // Put every parked car back where it started (missions reuse the same street).
 export function resetParkedCars(g){
