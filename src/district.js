@@ -3,6 +3,7 @@ import {batchStatic} from './quality.js';
 import {buildCar} from './models.js';
 import {registerParkedCar} from './carjack.js';
 import {FacadeBatch,surface,addWindow,addShutter} from './facades.js';
+import {propSpot,propFallback} from './props.js';
 // Compact second block reached through the passage at z=-31. Render batches
 // are local to each building so the renderer can cull individual lots.
 export function buildDistrict(game){
@@ -23,14 +24,15 @@ export function buildDistrict(game){
   lotFacade.add(surface(game,'building/concrete-trim',{color:'#9a958d'}),10.4,.2,14.4,x,h,z);
   for(const n of [-1,1])addShutter(lotFacade,game,{x:face,z:z+n*4,side:out,h:2.3});
   for(let f=1;f<Math.max(2,Math.floor(h/2.5));f++)for(let n=-1;n<=1;n++)addWindow(lotFacade,game,{x:face,y:2+f*2.5,z:z+n*4,side:out,h:1.5,w:1.3,lit:(n+f+i+side)%3===0});
-  box(.1,2.3,1.2,'#263d5e',x-side*5.1,1.2,z,false,lot);lotFacade.flush(lot,'district facade');batchStatic(lot);
+  const door=new THREE.Group();lot.add(door);box(.1,2.3,1.2,'#263d5e',x-side*5.1,1.2,z,false,door);propFallback(game,'door',door);propSpot(game,'door',x-side*5,.05,z,-side*Math.PI/2);lotFacade.flush(lot,'district facade');batchStatic(lot);
  }
  const sign=game.label('COMMERCE ROW','#e6d7a8',6,33,3,-31,30);sign.name='neutral district sign';
  const rival=game.label('OPP BLOCK','#72a9ff',5,56,4,-54,34);rival.name='rival district sign';
  const home=game.label('OUR BLOCK','#ff8a7a',5,12,4,-31,34);home.name='home district sign';
  // Back-building alleys: pass-through gaps remain open at -31 and -47.
+ const dumpsters=new THREE.Group();root.add(dumpsters);propFallback(game,'dumpster',dumpsters);
  for(const [x,z]of [[28,-40],[29,-55],[43,-16],[68,-44],[44,-65]]){
-  box(1.6,1.3,2.2,'#42594e',x,.65,z,true);box(1.7,.1,2.3,'#263c35',x,1.35,z);
+  box(1.6,1.3,2.2,'#42594e',x,.65,z,true,dumpsters);box(1.7,.1,2.3,'#263c35',x,1.35,z,false,dumpsters);propSpot(game,'dumpster',x,null,z);
   box(.8,1,.25,'#626b68',x+.8,.8,z+2);
   for(let n=0;n<3;n++){const bag=new THREE.Mesh(new THREE.IcosahedronGeometry(.28,1),game.material('#252c31'));bag.position.set(x-1+n*.28,.24,z+1.8);root.add(bag);}
  }

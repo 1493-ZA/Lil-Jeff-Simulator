@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {batchStatic} from './quality.js';
 import {safeFooting} from './companions.js';
+import {propSpot,propFallback} from './props.js';
 // Three readable areas, split along the east-west axis of the map.
 export const ZONES=[
  {id:'home',name:'OUR BLOCK',minX:-30,maxX:25,color:'#ff6f61',map:'#3a1d22'},
@@ -96,9 +97,10 @@ export function decorateTerritories(game){
   box(width,.02,.02,'#2a2a2a',x,6.45,z);
  }
  // Team-coloured street props (parked car colours are set where the cars are built).
- for(const [x,z]of [[47.2,-36],[64.8,-50],[47.2,-8]]){box(.5,1,.5,'#1d4fb8',x,.5,z);box(.55,.08,.55,'#2f6bea',x,1.03,z);}
- for(const [x,z]of [[-9.6,-14],[9.6,-50],[-9.6,-60]]){box(.5,1,.5,'#9e2b26',x,.5,z);box(.55,.08,.55,'#c9413a',x,1.03,z);}
+ const cans=new THREE.Group();cans.name='trash can fallback';propFallback(game,'trash-can',cans);
+ for(const [x,z]of [[47.2,-36],[64.8,-50],[47.2,-8]]){box(.5,1,.5,'#1d4fb8',x,.5,z,{parent:cans});box(.55,.08,.55,'#2f6bea',x,1.03,z,{parent:cans});propSpot(game,'trash-can',x,null,z,0,{tint:'#1d4fb8'});}
+ for(const [x,z]of [[-9.6,-14],[9.6,-50],[-9.6,-60]]){box(.5,1,.5,'#9e2b26',x,.5,z,{parent:cans});box(.55,.08,.55,'#c9413a',x,1.03,z,{parent:cans});propSpot(game,'trash-can',x,null,z,0,{tint:'#9e2b26'});}
  // Glow comes from emissive strips and bulbs only: extra point lights would
  // make every material in the scene more expensive to shade.
- batchStatic(root,true);game.territory=root;
+ batchStatic(root,true);root.add(cans);game.territory=root;
 }
